@@ -401,7 +401,7 @@ export default function MeetingDetail() {
     try {
       await downloadMeetingReport({
         meeting,
-        saccoName: currentSacco?.name || 'SACCO',
+        saccoName: currentSacco?.name || 'Group',
         saccoLogo: (currentSacco?.settings as any)?.logo as string | undefined,
         sections,
         deductionBreakdown: buildDeductionBreakdown(),
@@ -417,7 +417,7 @@ export default function MeetingDetail() {
     try {
       await printMeetingReport({
         meeting,
-        saccoName: currentSacco?.name || 'SACCO',
+        saccoName: currentSacco?.name || 'Group',
         saccoLogo: (currentSacco?.settings as any)?.logo as string | undefined,
         sections,
         deductionBreakdown: buildDeductionBreakdown(),
@@ -433,7 +433,7 @@ export default function MeetingDetail() {
       await shareMeetingReport(
         {
           meeting,
-          saccoName: currentSacco?.name || 'SACCO',
+          saccoName: currentSacco?.name || 'Group',
           saccoLogo: (currentSacco?.settings as any)?.logo as string | undefined,
           sections,
           deductionBreakdown: buildDeductionBreakdown(),

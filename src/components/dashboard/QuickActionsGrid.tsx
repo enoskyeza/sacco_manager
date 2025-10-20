@@ -14,7 +14,7 @@ interface QuickAction {
 const quickActions: QuickAction[] = [
   {
     title: 'Add Member',
-    description: 'Register a new SACCO member',
+    description: 'Register a new group member',
     href: '/members/new',
     icon: <UserPlus size={24} />,
     color: 'bg-indigo-500',
@@ -35,7 +35,7 @@ const quickActions: QuickAction[] = [
   },
   {
     title: 'Settings',
-    description: 'Configure SACCO settings',
+    description: 'Configure group settings',
     href: '/settings',
     icon: <Settings size={24} />,
     color: 'bg-blue-500',

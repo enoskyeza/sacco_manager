@@ -34,10 +34,10 @@ export default function Login() {
       <div className="max-w-md w-full space-y-8 bg-white p-10 rounded-xl shadow-lg">
         <div className="text-center">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-primary rounded-2xl mb-4">
-            <span className="text-white font-bold text-3xl">T</span>
+            <span className="text-white font-bold text-3xl">N</span>
           </div>
           <h2 className="text-3xl font-extrabold text-gray-900">
-            Tamiti SACCO Manager
+            Nyikira Okole Women's Group App
           </h2>
           <p className="mt-2 text-sm text-gray-600">
             Sign in to your account
@@ -114,8 +114,15 @@ export default function Login() {
           </div>
         </form>
 
-        <div className="text-center text-sm text-gray-500">
-          <p>Powered by Tamiti Studio</p>
+        <div className="text-center text-sm">
+          <a 
+            href="https://tamiti.com" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="text-gray-500 hover:text-indigo-600 transition-colors duration-200"
+          >
+            Powered by Tamiti Studio
+          </a>
         </div>
       </div>
     </div>

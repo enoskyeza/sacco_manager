@@ -255,9 +255,9 @@ export default function BusinessManagement() {
               <Store className="text-indigo-600" size={20} />
             </div>
             <div>
-              <h3 className="font-medium text-gray-900">SACCO Business Enterprises</h3>
+              <h3 className="font-medium text-gray-900">Group Business Enterprises</h3>
               <p className="text-sm text-gray-600 mt-1">
-                Create and manage businesses owned by your SACCO. Each business can have its own
+                Create and manage businesses owned by your Group. Each business can have its own
                 inventory, sales tracking, and financial accounts.
               </p>
             </div>

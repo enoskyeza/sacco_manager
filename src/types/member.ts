@@ -21,6 +21,8 @@ export interface Member extends BaseModel {
   next_of_kin_name?: string;
   next_of_kin_phone?: string;
   next_of_kin_relationship?: string;
+  savings_goal?: string; // Decimal as string
+  savings_goal_deadline?: string; // Date string
 }
 
 /**

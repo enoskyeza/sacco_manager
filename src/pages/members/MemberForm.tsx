@@ -1,6 +1,7 @@
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useMember, useCreateMember, useUpdateMember } from '../../hooks/useMembers';
 import { useState, useEffect, type FormEvent } from 'react';
+import { toast } from 'sonner';
 import type { Status } from '../../types';
 
 export default function MemberForm() {
@@ -41,17 +42,19 @@ export default function MemberForm() {
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
 
+    // Only first_name is required
     if (!formData.first_name.trim()) {
       newErrors.first_name = 'First name is required';
     }
-    if (!formData.last_name.trim()) {
-      newErrors.last_name = 'Last name is required';
+
+    // Validate phone format if provided
+    if (formData.phone && formData.phone.trim() && !/^[+]?[0-9]{10,15}$/.test(formData.phone.replace(/\s/g, ''))) {
+      newErrors.phone = 'Invalid phone number format';
     }
-    if (!formData.phone.trim()) {
-      newErrors.phone = 'Phone number is required';
-    }
-    if (!formData.date_joined) {
-      newErrors.date_joined = 'Date joined is required';
+
+    // Validate email format if provided
+    if (formData.email && formData.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      newErrors.email = 'Invalid email format';
     }
 
     setErrors(newErrors);
@@ -71,21 +74,47 @@ export default function MemberForm() {
           memberId: parseInt(id),
           data: formData,
         });
+        toast.success('Member updated successfully');
       } else {
-        await createMember.mutateAsync(formData);
+        const response = await createMember.mutateAsync(formData);
+        
+        // Show success with generated credentials
+        if (response && response.credentials) {
+          toast.success(
+            <div>
+              <div className="font-semibold">Member created successfully!</div>
+              <div className="mt-2 text-sm space-y-1">
+                <div><strong>Username:</strong> {response.credentials.username}</div>
+                <div><strong>Password:</strong> {response.credentials.password}</div>
+                <div className="text-xs mt-2 text-gray-600">
+                  {response.instructions}
+                </div>
+              </div>
+            </div>,
+            { duration: 10000 }
+          );
+        } else {
+          toast.success('Member created successfully');
+        }
       }
       navigate('/members');
     } catch (error: unknown) {
       console.error('Failed to save member:', error);
-      if (error && typeof error === 'object' && 'response' in error) {
-        const err = error as { response?: { data?: Record<string, string[]> } };
-        const serverErrors: Record<string, string> = {};
-        if (err.response?.data) {
+      const err = error as { response?: { data?: { message?: string } | Record<string, string[]> }; message?: string };
+      
+      if (err.response?.data) {
+        if (typeof err.response.data === 'object' && 'message' in err.response.data) {
+          toast.error(err.response.data.message || 'Failed to save member');
+        } else {
+          const serverErrors: Record<string, string> = {};
           Object.entries(err.response.data).forEach(([key, value]) => {
             serverErrors[key] = Array.isArray(value) ? value[0] : String(value);
           });
+          setErrors(serverErrors);
+          toast.error('Please fix the errors in the form');
         }
-        setErrors(serverErrors);
+      } else {
+        toast.error(err.message || 'Failed to save member');
       }
     }
   };
@@ -145,7 +174,7 @@ export default function MemberForm() {
             {/* Last Name */}
             <div>
               <label htmlFor="last_name" className="block text-sm font-medium text-gray-700 mb-1">
-                Last Name <span className="text-red-500">*</span>
+                Last Name
               </label>
               <input
                 type="text"
@@ -164,7 +193,7 @@ export default function MemberForm() {
             {/* Phone */}
             <div>
               <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
-                Phone Number <span className="text-red-500">*</span>
+                Phone Number
               </label>
               <input
                 type="tel"
@@ -199,7 +228,7 @@ export default function MemberForm() {
             {/* Date Joined */}
             <div>
               <label htmlFor="date_joined" className="block text-sm font-medium text-gray-700 mb-1">
-                Date Joined <span className="text-red-500">*</span>
+                Date Joined
               </label>
               <input
                 type="date"
@@ -224,7 +253,7 @@ export default function MemberForm() {
                 <select
                   id="status"
                   value={formData.status}
-                  onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
+                  onChange={(e) => setFormData({ ...formData, status: e.target.value as Status })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
                 >
                   <option value="active">Active</option>

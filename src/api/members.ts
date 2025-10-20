@@ -6,6 +6,16 @@ import type {
   UpdateMemberRequest,
 } from '../types';
 
+export interface MemberCreationResponse {
+  message: string;
+  member: Member;
+  credentials?: {
+    username: string;
+    password: string;
+  };
+  instructions?: string;
+}
+
 export const membersApi = {
   /**
    * Get all members with filters
@@ -29,7 +39,7 @@ export const membersApi = {
   /**
    * Create a new member
    */
-  createMember: async (saccoId: number, data: CreateMemberRequest): Promise<Member> => {
+  createMember: async (saccoId: number, data: CreateMemberRequest): Promise<MemberCreationResponse> => {
     const response = await apiClient.post(`/saccos/${saccoId}/members/`, data);
     return response.data;
   },
@@ -47,5 +57,13 @@ export const membersApi = {
    */
   deleteMember: async (saccoId: number, memberId: number): Promise<void> => {
     await apiClient.delete(`/saccos/${saccoId}/members/${memberId}/`);
+  },
+
+  /**
+   * Get current user's member profile
+   */
+  getCurrentMember: async (saccoId: number): Promise<Member> => {
+    const response = await apiClient.get(`/saccos/${saccoId}/members/me/`);
+    return response.data;
   },
 };

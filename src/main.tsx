@@ -11,9 +11,10 @@ const queryClient = new QueryClient({
     queries: {
       staleTime: 1000 * 60 * 5, // 5 minutes
       refetchOnWindowFocus: false,
-      retry: (failureCount, error: any) => {
+      retry: (failureCount, error: unknown) => {
         // Don't retry on 401 (Unauthorized) or 403 (Forbidden)
-        if (error?.response?.status === 401 || error?.response?.status === 403) {
+        const axiosError = error as { response?: { status?: number } };
+        if (axiosError?.response?.status === 401 || axiosError?.response?.status === 403) {
           return false;
         }
         // Retry other errors once
@@ -31,3 +32,17 @@ createRoot(document.getElementById('root')!).render(
     </QueryClientProvider>
   </StrictMode>,
 )
+
+// Register Service Worker for PWA
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker
+      .register('/sw.js')
+      .then((registration) => {
+        console.log('Service Worker registered:', registration);
+      })
+      .catch((error) => {
+        console.log('Service Worker registration failed:', error);
+      });
+  });
+}

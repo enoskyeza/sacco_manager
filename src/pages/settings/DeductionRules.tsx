@@ -170,7 +170,7 @@ export default function DeductionRules() {
               <p className="text-sm text-gray-600 mt-1">
                 Deduction rules define automatic deductions from the cash round recipient's payout.
                 These deductions are credited to their passbook sections and added to the amount
-                banked by the SACCO.
+                banked by the Group.
               </p>
             </div>
           </div>

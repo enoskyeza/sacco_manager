@@ -209,7 +209,7 @@ export default function PassbookManagement() {
               <BookOpen size={48} className="mx-auto text-gray-400 mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">No passbooks yet</h3>
               <p className="text-gray-500 mb-4">
-                Passbooks are automatically created when you add SACCO members.
+                Passbooks are automatically created when you add Group members.
                 <br />
                 Add members to get started.
               </p>

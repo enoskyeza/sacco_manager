@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Menu, LogOut, User, Settings } from 'lucide-react';
+import { Menu, LogOut, User, Settings, Download } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useSacco } from '../../hooks/useSacco';
+import { useInstallPrompt } from '../../hooks/useInstallPrompt';
 import { getInitials } from '../../utils/format';
 
 interface TopNavProps {
@@ -12,6 +13,7 @@ interface TopNavProps {
 export default function TopNav({ onMenuClick }: TopNavProps) {
   const { user, logout } = useAuth();
   const { currentSacco, saccos, switchSacco } = useSacco();
+  const { promptInstall, canInstall, isInstalled } = useInstallPrompt();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showSaccoMenu, setShowSaccoMenu] = useState(false);
 
@@ -115,6 +117,18 @@ export default function TopNav({ onMenuClick }: TopNavProps) {
                     <Settings size={16} />
                     Settings
                   </Link>
+                  {!isInstalled && canInstall && (
+                    <button
+                      onClick={() => {
+                        promptInstall();
+                        setShowUserMenu(false);
+                      }}
+                      className="flex items-center gap-2 w-full px-4 py-2 text-sm text-indigo-600 hover:bg-indigo-50"
+                    >
+                      <Download size={16} />
+                      Install App
+                    </button>
+                  )}
                   <button
                     onClick={handleLogout}
                     className="flex items-center gap-2 w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-b-lg"

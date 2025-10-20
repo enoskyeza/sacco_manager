@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User, Mail, Phone, MapPin, Calendar } from 'lucide-react';
+import { toast } from 'sonner';
 import type { Member, CreateMemberRequest, UpdateMemberRequest } from '../../types';
 import { useCreateMember, useUpdateMember } from '../../hooks/useMembers';
 import { Input, Button, Card, CardBody, CardFooter } from '../common';
@@ -38,26 +39,19 @@ export default function MemberForm({ member, onSuccess }: MemberFormProps) {
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
 
+    // Only first_name is required
     if (!isRequired(formData.first_name)) {
       newErrors.first_name = getErrorMessage('First name', 'required');
     }
 
-    if (!isRequired(formData.last_name)) {
-      newErrors.last_name = getErrorMessage('Last name', 'required');
-    }
-
-    if (!isRequired(formData.phone)) {
-      newErrors.phone = getErrorMessage('Phone', 'required');
-    } else if (!isValidPhone(formData.phone)) {
+    // Validate phone if provided
+    if (formData.phone && !isValidPhone(formData.phone)) {
       newErrors.phone = getErrorMessage('Phone', 'phone');
     }
 
+    // Validate email if provided
     if (formData.email && !isValidEmail(formData.email)) {
       newErrors.email = getErrorMessage('Email', 'email');
-    }
-
-    if (!isRequired(formData.date_joined)) {
-      newErrors.date_joined = getErrorMessage('Date joined', 'required');
     }
 
     setErrors(newErrors);
@@ -77,8 +71,28 @@ export default function MemberForm({ member, onSuccess }: MemberFormProps) {
           memberId: member.id,
           data: formData as UpdateMemberRequest,
         });
+        toast.success('Member updated successfully');
       } else {
-        await createMember.mutateAsync(formData);
+        const response = await createMember.mutateAsync(formData);
+        
+        // Show success with generated credentials
+        if (response && response.credentials) {
+          toast.success(
+            <div>
+              <div className="font-semibold">Member created successfully!</div>
+              <div className="mt-2 text-sm space-y-1">
+                <div><strong>Username:</strong> {response.credentials.username}</div>
+                <div><strong>Password:</strong> {response.credentials.password}</div>
+                <div className="text-xs mt-2 text-gray-600">
+                  {response.instructions}
+                </div>
+              </div>
+            </div>,
+            { duration: 10000 }
+          );
+        } else {
+          toast.success('Member created successfully');
+        }
       }
 
       if (onSuccess) {
@@ -88,6 +102,9 @@ export default function MemberForm({ member, onSuccess }: MemberFormProps) {
       }
     } catch (error) {
       console.error('Form submission error:', error);
+      const err = error as { response?: { data?: { message?: string } }; message?: string };
+      const errorMessage = err?.response?.data?.message || err?.message || 'Failed to save member';
+      toast.error(errorMessage);
     }
   };
 
@@ -126,7 +143,6 @@ export default function MemberForm({ member, onSuccess }: MemberFormProps) {
                   value={formData.last_name}
                   onChange={(e) => handleChange('last_name', e.target.value)}
                   error={errors.last_name}
-                  required
                   leftIcon={<User size={18} />}
                 />
 
@@ -145,7 +161,6 @@ export default function MemberForm({ member, onSuccess }: MemberFormProps) {
                   value={formData.phone}
                   onChange={(e) => handleChange('phone', e.target.value)}
                   error={errors.phone}
-                  required
                   placeholder="+256700000000"
                   leftIcon={<Phone size={18} />}
                 />
@@ -171,7 +186,6 @@ export default function MemberForm({ member, onSuccess }: MemberFormProps) {
                   value={formData.date_joined}
                   onChange={(e) => handleChange('date_joined', e.target.value)}
                   error={errors.date_joined}
-                  required
                   leftIcon={<Calendar size={18} />}
                 />
 

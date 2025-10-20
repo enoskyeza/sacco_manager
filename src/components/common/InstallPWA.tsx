@@ -89,7 +89,7 @@ export default function InstallPWA() {
                 <Download className="text-indigo-600" size={20} />
               </div>
               <div>
-                <h3 className="font-semibold">Install SACCO App</h3>
+                <h3 className="font-semibold">Install Group Manager App</h3>
                 <p className="text-xs text-indigo-100">Get quick access anytime</p>
               </div>
             </div>

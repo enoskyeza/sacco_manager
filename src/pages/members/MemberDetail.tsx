@@ -1,24 +1,75 @@
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useMember, useDeleteMember } from '../../hooks/useMembers';
-import { useState } from 'react';
-import { formatCurrency, parseDecimal } from '../../utils/format';
+import { useState, useEffect } from 'react';
+import { formatCurrency, formatDate } from '../../utils/format';
+import { passbookApi } from '../../api';
+import { useSacco } from '../../hooks/useSacco';
+import type { PassbookSection, PassbookEntry } from '../../types';
 
 export default function MemberDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [sections, setSections] = useState<PassbookSection[]>([]);
+  const [activeTab, setActiveTab] = useState<number | null>(null);
+  const [entries, setEntries] = useState<PassbookEntry[]>([]);
+  const [loadingEntries, setLoadingEntries] = useState(false);
 
   const { data: member, isLoading, error } = useMember(parseInt(id!));
   const deleteMember = useDeleteMember();
+  const { currentSacco } = useSacco();
 
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-UG', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
-  };
+  // Fetch passbook sections
+  useEffect(() => {
+    const fetchSections = async () => {
+      if (currentSacco) {
+        try {
+          const data = await passbookApi.getSections(currentSacco.id);
+          setSections(data);
+          if (data.length > 0) {
+            setActiveTab(data[0].id);
+          }
+        } catch (err) {
+          console.error('Failed to fetch sections:', err);
+        }
+      }
+    };
+    fetchSections();
+  }, [currentSacco]);
+
+  // Fetch entries for active tab
+  useEffect(() => {
+    const fetchEntries = async () => {
+      if (activeTab && member) {
+        setLoadingEntries(true);
+        try {
+          const response = await passbookApi.getEntries({
+            section: activeTab,
+            member: member.id,
+          });
+          // Handle paginated response
+          if (response && typeof response === 'object') {
+            if ('results' in response && Array.isArray(response.results)) {
+              setEntries(response.results);
+            } else if (Array.isArray(response)) {
+              setEntries(response);
+            } else {
+              setEntries([]);
+            }
+          } else {
+            setEntries([]);
+          }
+        } catch (err) {
+          console.error('Failed to fetch entries:', err);
+          setEntries([]);
+        } finally {
+          setLoadingEntries(false);
+        }
+      }
+    };
+    fetchEntries();
+  }, [activeTab, member]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -169,24 +220,98 @@ export default function MemberDetail() {
               <p className="text-xs text-gray-500 uppercase">Total Savings</p>
               <p className="text-2xl font-bold text-green-600">{formatCurrency(member.total_savings)}</p>
             </div>
-            <div>
-              <p className="text-xs text-gray-500 uppercase">Total Shares</p>
-              <p className="text-2xl font-bold text-blue-600">{formatCurrency(member.total_shares)}</p>
-            </div>
-            <div className="pt-4 border-t border-gray-200">
-              <p className="text-xs text-gray-500 uppercase">Total Balance</p>
-              <p className="text-2xl font-bold text-gray-900">
-                {formatCurrency(parseDecimal(member.total_savings) + parseDecimal(member.total_shares))}
-              </p>
-            </div>
           </div>
         </div>
       </div>
 
-      {/* Recent Transactions */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Transactions</h3>
-        <p className="text-sm text-gray-500">Transaction history coming soon...</p>
+      {/* Passbook Transactions by Section */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+        <div className="p-6 border-b border-gray-200">
+          <h3 className="text-lg font-semibold text-gray-900">Passbook Transactions</h3>
+        </div>
+        
+        {/* Section Tabs */}
+        {sections.length > 0 ? (
+          <>
+            <div className="border-b border-gray-200 overflow-x-auto">
+              <div className="flex">
+                {sections.map((section) => (
+                  <button
+                    key={section.id}
+                    onClick={() => setActiveTab(section.id)}
+                    className={`px-6 py-3 text-sm font-medium whitespace-nowrap ${
+                      activeTab === section.id
+                        ? 'border-b-2 border-primary text-primary'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    {section.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+            
+            {/* Transactions Table */}
+            <div className="p-6">
+              {loadingEntries ? (
+                <div className="flex justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                </div>
+              ) : entries.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead>
+                      <tr>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Description</th>
+                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Type</th>
+                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Amount</th>
+                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Balance</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      {entries.map((entry) => (
+                        <tr key={entry.id} className="hover:bg-gray-50">
+                          <td className="px-4 py-3 text-sm text-gray-900">
+                            {formatDate(entry.transaction_date)}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-900">
+                            {entry.description}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-right">
+                            <span className={`px-2 py-1 rounded-full text-xs ${
+                              entry.transaction_type === 'credit'
+                                ? 'bg-green-100 text-green-800'
+                                : 'bg-red-100 text-red-800'
+                            }`}>
+                              {entry.transaction_type}
+                            </span>
+                          </td>
+                          <td className={`px-4 py-3 text-sm text-right font-medium ${
+                            entry.transaction_type === 'credit' ? 'text-green-600' : 'text-red-600'
+                          }`}>
+                            {entry.transaction_type === 'credit' ? '+' : '-'}{formatCurrency(entry.amount)}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-right font-medium text-gray-900">
+                            {formatCurrency(entry.balance_after)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <p className="text-gray-500">No transactions found for this section</p>
+                </div>
+              )}
+            </div>
+          </>
+        ) : (
+          <div className="p-6">
+            <p className="text-sm text-gray-500">No passbook sections available</p>
+          </div>
+        )}
       </div>
 
       {/* Delete Confirmation Modal */}

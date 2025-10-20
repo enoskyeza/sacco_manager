@@ -78,7 +78,7 @@ export default function Settings() {
     return (
       <div className="p-8">
         <div className="text-center py-12">
-          <p className="text-gray-500">No SACCO found</p>
+          <p className="text-gray-500">No Group found</p>
         </div>
       </div>
     );
@@ -89,9 +89,9 @@ export default function Settings() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">SACCO Settings</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Group Settings</h1>
           <p className="text-gray-600 mt-1">
-            Configure your SACCO organization settings
+            Configure your Group organization settings
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -114,7 +114,7 @@ export default function Settings() {
             onClick={() => navigate('/settings/account')}
             leftIcon={<Wallet size={18} />}
           >
-            SACCO Account
+            Group Account
           </Button>
           <Button
             variant="outline"
@@ -140,10 +140,10 @@ export default function Settings() {
           <CardBody>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Input
-                label="SACCO Name"
+                label="Group Name"
                 value={formData.name}
                 onChange={(e) => handleChange('name', e.target.value)}
-                placeholder="Enter SACCO name"
+                placeholder="Enter Group name"
                 required
                 leftIcon={<Building2 size={18} />}
               />
@@ -161,7 +161,7 @@ export default function Settings() {
               <textarea
                 value={formData.description}
                 onChange={(e) => handleChange('description', e.target.value)}
-                placeholder="Brief description of your SACCO"
+                placeholder="Brief description of your Group"
                 rows={3}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
               />
@@ -186,7 +186,7 @@ export default function Settings() {
                 type="email"
                 value={formData.email}
                 onChange={(e) => handleChange('email', e.target.value)}
-                placeholder="sacco@example.com"
+                placeholder="group@example.com"
                 leftIcon={<Mail size={18} />}
               />
               <Input

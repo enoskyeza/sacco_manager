@@ -14,7 +14,7 @@ export default function CreateMember() {
         </Link>
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Add New Member</h1>
-          <p className="text-gray-600 mt-1">Register a new SACCO member</p>
+          <p className="text-gray-600 mt-1">Register a new Group member</p>
         </div>
       </div>
 

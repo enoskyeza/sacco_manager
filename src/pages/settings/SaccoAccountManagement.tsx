@@ -67,7 +67,7 @@ export default function SaccoAccountManagement() {
       queryClient.invalidateQueries({ queryKey: ['sacco-account', currentSacco?.id] });
       setIsEditModalOpen(false);
       resetForm();
-      toast.success('SACCO account updated successfully!');
+      toast.success('Group account updated successfully!');
     },
     onError: () => {
       toast.error('Failed to update account');
@@ -123,9 +123,9 @@ export default function SaccoAccountManagement() {
               </Button>
             </Link>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">SACCO Account</h1>
+              <h1 className="text-2xl font-bold text-gray-900">Group Account</h1>
               <p className="text-gray-600 mt-1">
-                Manage your SACCO's financial account
+                Manage your Group's financial account
               </p>
             </div>
           </div>
@@ -145,9 +145,9 @@ export default function SaccoAccountManagement() {
               <TrendingUp className="text-green-600" size={20} />
             </div>
             <div>
-              <h3 className="font-medium text-gray-900">SACCO Treasury Account</h3>
+              <h3 className="font-medium text-gray-900">Group Treasury Account</h3>
               <p className="text-sm text-gray-600 mt-1">
-                This account tracks all money actually held by the SACCO (in bank or cash).
+                This account tracks all money actually held by the Group (in bank or cash).
                 It's credited when members make savings and debited when loans are disbursed.
               </p>
             </div>
@@ -166,17 +166,17 @@ export default function SaccoAccountManagement() {
                 <Building2 className="text-indigo-600" size={32} />
               </div>
               <h3 className="text-lg font-medium text-gray-900 mb-2">
-                No SACCO Account Yet
+                No Group Account Yet
               </h3>
               <p className="text-gray-600 mb-4 max-w-md mx-auto">
-                Create a SACCO account to start tracking your organization's finances.
+                Create a Group account to start tracking your organization's finances.
                 This will help you manage savings, loans, and expenses.
               </p>
               <Button
                 variant="primary"
                 onClick={() => setIsCreateModalOpen(true)}
               >
-                Create SACCO Account
+                Create Group Account
               </Button>
             </div>
           </CardBody>
@@ -279,7 +279,7 @@ export default function SaccoAccountManagement() {
       <Modal
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
-        title="Create SACCO Account"
+        title="Create Group Account"
       >
         <div className="space-y-4">
           <Input
@@ -352,7 +352,7 @@ export default function SaccoAccountManagement() {
       <Modal
         isOpen={isEditModalOpen}
         onClose={() => setIsEditModalOpen(false)}
-        title="Edit SACCO Account"
+        title="Edit Group Account"
       >
         <div className="space-y-4">
           <Input
