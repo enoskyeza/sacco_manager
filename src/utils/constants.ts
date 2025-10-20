@@ -2,11 +2,13 @@
  * Application constants
  */
 
+import { ENV } from '../config/env';
+
 /**
  * API Configuration
  */
 export const API_CONFIG = {
-  BASE_URL: import.meta.env.VITE_API_URL || 'http://localhost:8000/api',
+  BASE_URL: ENV.API_URL,
   TIMEOUT: 30000, // 30 seconds
   RETRY_ATTEMPTS: 3,
 } as const;

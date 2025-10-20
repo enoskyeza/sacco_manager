@@ -81,10 +81,13 @@ The app requires the following environment variable:
 |----------|-------------|---------|
 | `VITE_API_URL` | Backend API base URL | `https://api.yourdomain.com/api` |
 
-**Important Notes:**
+**CRITICAL NOTES:**
+- ⚠️ **REQUIRED**: This environment variable MUST be set - there is NO localhost fallback
+- The app will throw an error on startup if `VITE_API_URL` is not defined
 - In Vite, environment variables must be prefixed with `VITE_` to be exposed to the client
 - The variable should include `/api` at the end
 - Make sure your backend has CORS configured to allow requests from your Netlify domain
+- For local development: Copy `.env.example` to `.env` and update the URL
 
 ## Post-Deployment Checklist
 

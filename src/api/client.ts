@@ -1,7 +1,8 @@
 import axios from 'axios';
+import { ENV } from '../config/env';
 
 const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000/api',
+  baseURL: ENV.API_URL,
   withCredentials: true, // Important: sends cookies with requests
   headers: {
     'Content-Type': 'application/json',
@@ -70,7 +71,7 @@ apiClient.interceptors.response.use(
       try {
         // Call refresh endpoint (uses httpOnly cookie automatically)
         const response = await axios.post(
-          `${import.meta.env.VITE_API_URL || 'http://localhost:8000/api'}/auth/token/refresh/`,
+          `${ENV.API_URL}/auth/token/refresh/`,
           {},
           { withCredentials: true }
         );
