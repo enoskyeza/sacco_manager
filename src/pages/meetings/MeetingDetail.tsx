@@ -54,6 +54,17 @@ export default function MeetingDetail() {
     enabled: !!currentSacco && !!meeting?.cash_round,
   });
 
+  // Limit to members who are part of this cash round (fallback to all active if no cash round)
+  const cashRoundMemberIds = useMemo(
+    () => (cashRound?.members?.map((m) => m.member) ?? []),
+    [cashRound]
+  );
+
+  const roundMembers = useMemo(
+    () => (cashRoundMemberIds.length ? members.filter((m) => cashRoundMemberIds.includes(m.id)) : members),
+    [members, cashRoundMemberIds]
+  );
+
   const createContribution = useCreateContribution();
   const updateContribution = useUpdateContribution();
   const deleteContribution = useDeleteContribution();
@@ -834,7 +845,7 @@ export default function MeetingDetail() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {members.map((member) => {
+                {roundMembers.map((member) => {
                   const contribution = getMemberContribution(member.id);
                   const hasPaid = contribution && parseFloat(contribution.amount_contributed) > 0;
                   const extraPayments = getMemberExtraPayments(member.id);
@@ -942,7 +953,7 @@ export default function MeetingDetail() {
                 })}
               </tbody>
             </table>
-            {members.length === 0 && (
+            {roundMembers.length === 0 && (
               <div className="text-center py-8 text-gray-500">
                 No active members found
               </div>

@@ -6,10 +6,13 @@ import { Card, CardBody, MeetingStatusBadge } from '../common';
 
 interface MeetingCardProps {
   meeting: WeeklyMeeting;
+  roundMemberCount?: number;
 }
 
-export default function MeetingCard({ meeting }: MeetingCardProps) {
-  const totalMembers = meeting.members_present + meeting.members_absent;
+export default function MeetingCard({ meeting, roundMemberCount }: MeetingCardProps) {
+  const totalMembers = typeof roundMemberCount === 'number'
+    ? roundMemberCount
+    : meeting.members_present + meeting.members_absent;
   const membersPaid = meeting.members_present; // Members present are assumed to have paid
   const paymentRate = totalMembers > 0
     ? (membersPaid / totalMembers) * 100

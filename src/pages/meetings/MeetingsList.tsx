@@ -131,7 +131,11 @@ export default function MeetingsList() {
           {meetings.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {meetings.map((meeting) => (
-                <MeetingCard key={meeting.id} meeting={meeting} />
+                <MeetingCard 
+                  key={meeting.id} 
+                  meeting={meeting} 
+                  roundMemberCount={selectedRound?.member_count}
+                />
               ))}
             </div>
           ) : (
