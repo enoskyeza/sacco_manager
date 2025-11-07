@@ -19,7 +19,7 @@ interface NavItem {
 
 const navigation: NavItem[] = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { name: 'Meetings', href: '/meetings', icon: Calendar },
+  { name: 'Cash Rounds', href: '/cash-rounds', icon: Calendar },
   { name: 'Members', href: '/members', icon: Users },
   { name: 'Passbook', href: '/passbook', icon: BookOpen },
   { name: 'Loans', href: '/loans', icon: DollarSign },

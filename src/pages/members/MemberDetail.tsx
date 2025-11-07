@@ -4,6 +4,9 @@ import { useState, useEffect } from 'react';
 import { formatCurrency, formatDate } from '../../utils/format';
 import { passbookApi } from '../../api';
 import { useSacco } from '../../hooks/useSacco';
+import { Plus, Edit2, Trash2 } from 'lucide-react';
+import { toast } from 'sonner';
+import PassbookEntryModal from '../../components/passbook/PassbookEntryModal';
 import type { PassbookSection, PassbookEntry } from '../../types';
 
 export default function MemberDetail() {
@@ -14,21 +17,34 @@ export default function MemberDetail() {
   const [activeTab, setActiveTab] = useState<number | null>(null);
   const [entries, setEntries] = useState<PassbookEntry[]>([]);
   const [loadingEntries, setLoadingEntries] = useState(false);
+  const [showEntryModal, setShowEntryModal] = useState(false);
+  const [selectedEntry, setSelectedEntry] = useState<PassbookEntry | null>(null);
+  const [deletingEntryId, setDeletingEntryId] = useState<number | null>(null);
+  const [passbookId, setPassbookId] = useState<number | null>(null);
+  const [sectionBalance, setSectionBalance] = useState<string>('0');
 
   const { data: member, isLoading, error } = useMember(parseInt(id!));
   const deleteMember = useDeleteMember();
   const { currentSacco } = useSacco();
 
 
-  // Fetch passbook sections
+  // Fetch passbook sections and member's passbook
   useEffect(() => {
     const fetchSections = async () => {
-      if (currentSacco) {
+      if (currentSacco && member) {
         try {
+          // Fetch sections
           const data = await passbookApi.getSections(currentSacco.id);
           setSections(data);
           if (data.length > 0) {
             setActiveTab(data[0].id);
+          }
+
+          // Fetch member's passbook to get passbook ID
+          const passbooks = await passbookApi.getPassbooks();
+          const memberPassbook = passbooks.find(p => p.member === member.id);
+          if (memberPassbook) {
+            setPassbookId(memberPassbook.id);
           }
         } catch (err) {
           console.error('Failed to fetch sections:', err);
@@ -36,7 +52,7 @@ export default function MemberDetail() {
       }
     };
     fetchSections();
-  }, [currentSacco]);
+  }, [currentSacco, member]);
 
   // Fetch entries for active tab
   useEffect(() => {
@@ -52,17 +68,32 @@ export default function MemberDetail() {
           if (response && typeof response === 'object') {
             if ('results' in response && Array.isArray(response.results)) {
               setEntries(response.results);
+              // Calculate section balance from latest entry
+              if (response.results.length > 0) {
+                const latestEntry = response.results[0];
+                setSectionBalance(latestEntry.balance_after || '0');
+              } else {
+                setSectionBalance('0');
+              }
             } else if (Array.isArray(response)) {
               setEntries(response);
+              if (response.length > 0) {
+                setSectionBalance(response[0].balance_after || '0');
+              } else {
+                setSectionBalance('0');
+              }
             } else {
               setEntries([]);
+              setSectionBalance('0');
             }
           } else {
             setEntries([]);
+            setSectionBalance('0');
           }
         } catch (err) {
           console.error('Failed to fetch entries:', err);
           setEntries([]);
+          setSectionBalance('0');
         } finally {
           setLoadingEntries(false);
         }
@@ -92,6 +123,93 @@ export default function MemberDetail() {
       console.error('Failed to delete member:', error);
     }
   };
+
+  const handleCreateEntry = () => {
+    setSelectedEntry(null);
+    setShowEntryModal(true);
+  };
+
+  const handleEditEntry = (entry: PassbookEntry) => {
+    setSelectedEntry(entry);
+    setShowEntryModal(true);
+  };
+
+  const handleDeleteEntry = async (entryId: number) => {
+    if (!confirm('Are you sure you want to delete this entry?')) return;
+
+    setDeletingEntryId(entryId);
+    try {
+      await passbookApi.deleteEntry(entryId);
+      toast.success('Entry deleted successfully');
+      // Refresh entries
+      if (activeTab && member) {
+        const response = await passbookApi.getEntries({
+          section: activeTab,
+          member: member.id,
+        });
+        if (response && typeof response === 'object') {
+          if ('results' in response && Array.isArray(response.results)) {
+            setEntries(response.results);
+            // Update section balance
+            if (response.results.length > 0) {
+              setSectionBalance(response.results[0].balance_after || '0');
+            } else {
+              setSectionBalance('0');
+            }
+          } else if (Array.isArray(response)) {
+            setEntries(response);
+            if (response.length > 0) {
+              setSectionBalance(response[0].balance_after || '0');
+            } else {
+              setSectionBalance('0');
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Failed to delete entry:', error);
+      toast.error('Failed to delete entry');
+    } finally {
+      setDeletingEntryId(null);
+    }
+  };
+
+  const handleEntrySuccess = async () => {
+    // Refresh entries after create/update
+    if (activeTab && member) {
+      setLoadingEntries(true);
+      try {
+        const response = await passbookApi.getEntries({
+          section: activeTab,
+          member: member.id,
+        });
+        if (response && typeof response === 'object') {
+          if ('results' in response && Array.isArray(response.results)) {
+            setEntries(response.results);
+            // Update section balance
+            if (response.results.length > 0) {
+              setSectionBalance(response.results[0].balance_after || '0');
+            } else {
+              setSectionBalance('0');
+            }
+          } else if (Array.isArray(response)) {
+            setEntries(response);
+            if (response.length > 0) {
+              setSectionBalance(response[0].balance_after || '0');
+            } else {
+              setSectionBalance('0');
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Failed to refresh entries:', err);
+      } finally {
+        setLoadingEntries(false);
+      }
+    }
+  };
+
+  const activeSection = sections.find(s => s.id === activeTab);
 
   if (isLoading) {
     return (
@@ -227,7 +345,18 @@ export default function MemberDetail() {
       {/* Passbook Transactions by Section */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200">
         <div className="p-6 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900">Passbook Transactions</h3>
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <h3 className="text-lg font-semibold text-gray-900">Passbook Transactions</h3>
+            {activeSection && (
+              <button
+                onClick={handleCreateEntry}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors font-medium"
+              >
+                <Plus size={18} />
+                Add Entry to {activeSection.name}
+              </button>
+            )}
+          </div>
         </div>
         
         {/* Section Tabs */}
@@ -251,6 +380,22 @@ export default function MemberDetail() {
               </div>
             </div>
             
+            {/* Section Balance Summary */}
+            {activeSection && (
+              <div className="px-6 pt-6 pb-4 bg-gray-50 border-b border-gray-200">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600">Section Balance</p>
+                    <p className="text-2xl font-bold text-primary">{formatCurrency(sectionBalance)}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs text-gray-500 uppercase">{activeSection.section_type}</p>
+                    <p className="text-sm text-gray-600">Total Entries: {entries.length}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+            
             {/* Transactions Table */}
             <div className="p-6">
               {loadingEntries ? (
@@ -267,6 +412,7 @@ export default function MemberDetail() {
                         <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Type</th>
                         <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Amount</th>
                         <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Balance</th>
+                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
@@ -294,6 +440,29 @@ export default function MemberDetail() {
                           </td>
                           <td className="px-4 py-3 text-sm text-right font-medium text-gray-900">
                             {formatCurrency(entry.balance_after)}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              <button
+                                onClick={() => handleEditEntry(entry)}
+                                className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                                title="Edit entry"
+                              >
+                                <Edit2 size={16} />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteEntry(entry.id)}
+                                disabled={deletingEntryId === entry.id}
+                                className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors disabled:opacity-50"
+                                title="Delete entry"
+                              >
+                                {deletingEntryId === entry.id ? (
+                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600" />
+                                ) : (
+                                  <Trash2 size={16} />
+                                )}
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -339,6 +508,21 @@ export default function MemberDetail() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Passbook Entry Modal */}
+      {activeSection && passbookId && (
+        <PassbookEntryModal
+          isOpen={showEntryModal}
+          onClose={() => {
+            setShowEntryModal(false);
+            setSelectedEntry(null);
+          }}
+          onSuccess={handleEntrySuccess}
+          passbookId={passbookId}
+          section={activeSection}
+          entry={selectedEntry}
+        />
       )}
     </div>
   );

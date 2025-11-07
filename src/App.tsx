@@ -19,6 +19,9 @@ import Settings from './pages/settings/Settings';
 import SectionsManagement from './pages/settings/SectionsManagement';
 import DeductionRules from './pages/settings/DeductionRules';
 import CashRoundSchedule from './pages/settings/CashRoundSchedule';
+import CashRounds from './pages/settings/CashRounds';
+import CashRoundForm from './pages/settings/CashRoundForm';
+import CashRoundDetail from './pages/settings/CashRoundDetail';
 import SaccoAccountManagement from './pages/settings/SaccoAccountManagement';
 import BusinessManagement from './pages/settings/BusinessManagement';
 import BusinessPanel from './pages/business/BusinessPanel';
@@ -88,9 +91,9 @@ function App() {
             }
           />
 
-          {/* Meetings routes */}
+          {/* Cash Rounds routes */}
           <Route
-            path="/meetings"
+            path="/cash-rounds"
             element={
               <ProtectedRoute>
                 <AppLayout>
@@ -100,7 +103,7 @@ function App() {
             }
           />
           <Route
-            path="/meetings/new"
+            path="/cash-rounds/meetings/new"
             element={
               <ProtectedRoute>
                 <AppLayout>
@@ -110,7 +113,7 @@ function App() {
             }
           />
           <Route
-            path="/meetings/:id"
+            path="/cash-rounds/meetings/:id"
             element={
               <ProtectedRoute>
                 <AppLayout>
@@ -120,7 +123,7 @@ function App() {
             }
           />
           <Route
-            path="/meetings/:id/collect"
+            path="/cash-rounds/meetings/:id/collect"
             element={
               <ProtectedRoute>
                 <AppLayout>
@@ -129,6 +132,10 @@ function App() {
               </ProtectedRoute>
             }
           />
+          
+          {/* Legacy redirects */}
+          <Route path="/meetings" element={<Navigate to="/cash-rounds" replace />} />
+          <Route path="/meetings/*" element={<Navigate to="/cash-rounds" replace />} />
 
           {/* Passbook routes */}
           <Route
@@ -245,6 +252,46 @@ function App() {
               <ProtectedRoute>
                 <AppLayout>
                   <CashRoundSchedule />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/settings/cash-rounds"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <CashRounds />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/settings/cash-rounds/new"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <CashRoundForm />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/settings/cash-rounds/:id"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <CashRoundDetail />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/settings/cash-rounds/:id/edit"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <CashRoundForm />
                 </AppLayout>
               </ProtectedRoute>
             }

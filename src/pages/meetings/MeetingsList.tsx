@@ -1,22 +1,39 @@
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Plus, Filter } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Filter } from 'lucide-react';
 import { useMeetings } from '../../hooks/useMeetings';
 import type { MeetingStatus } from '../../types';
-import { Button, EmptyState } from '../../components/common';
+import { EmptyState } from '../../components/common';
 import { Loading } from '../../components/common/Spinner';
 import MeetingCard from '../../components/meetings/MeetingCard';
+import CashRoundSelector from '../../components/cash-rounds/CashRoundSelector';
+import CashRoundActionButton from '../../components/cash-rounds/CashRoundActionButton';
+import type { CashRound } from '../../api/cashRound';
 
 export default function MeetingsList() {
+  const [selectedRound, setSelectedRound] = useState<CashRound | null>(null);
+  const [isLoadingRounds, setIsLoadingRounds] = useState(true);
   const [statusFilter, setStatusFilter] = useState<MeetingStatus | ''>('');
   const [year, setYear] = useState<number>(new Date().getFullYear());
 
-  const { data, isLoading, error } = useMeetings({
+  const { data, isLoading, error, refetch } = useMeetings({
     status: statusFilter || undefined,
     year,
+    cash_round: selectedRound?.id,
   });
   
   const meetings = data?.results || [];
+
+  // Refetch meetings when round changes
+  useEffect(() => {
+    if (selectedRound) {
+      refetch();
+    }
+  }, [selectedRound, refetch]);
+
+  // Determine if we can create next meeting
+  const hasNoMeetings = meetings.length === 0;
+  const lastMeeting = meetings.length > 0 ? meetings[0] : null;
+  const lastMeetingCompleted = lastMeeting?.status === 'completed';
 
   if (isLoading) {
     return <Loading message="Loading meetings..." />;
@@ -34,21 +51,40 @@ export default function MeetingsList() {
   }
 
   return (
-    <div className="space-y-6 p-8">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Weekly Meetings</h1>
-          <p className="text-gray-600 mt-1">
-            {meetings.length} meetings recorded
-          </p>
-        </div>
-        <Link to="/meetings/new">
-          <Button variant="primary" leftIcon={<Plus size={18} />}>
-            New Meeting
-          </Button>
-        </Link>
-      </div>
+    <div className="space-y-6 p-4 md:p-8">
+      {/* Cash Round Selector */}
+      <CashRoundSelector
+        onRoundSelect={(round) => setSelectedRound(round)}
+        selectedRoundId={selectedRound?.id}
+        onLoadingChange={(loading) => setIsLoadingRounds(loading)}
+      />
+
+      {/* Only show content if round is selected */}
+      {!selectedRound && !isLoadingRounds ? (
+        <EmptyState
+          icon={<Filter size={48} />}
+          title="No Cash Round Selected"
+          description="Select a cash round above to view its meetings"
+        />
+      ) : selectedRound ? (
+        <>
+          {/* Action Button based on round status */}
+          <CashRoundActionButton
+            cashRound={selectedRound}
+            hasNoMeetings={hasNoMeetings}
+            lastMeetingCompleted={lastMeetingCompleted}
+            onSuccess={() => refetch()}
+          />
+
+          {/* Header */}
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Cash Round Meetings</h1>
+              <p className="text-gray-600 mt-1">
+                {meetings.length} {meetings.length === 1 ? 'meeting' : 'meetings'} in this round
+              </p>
+            </div>
+          </div>
 
       {/* Filters */}
       <div className="bg-white rounded-lg border border-gray-200 p-4">
@@ -91,33 +127,28 @@ export default function MeetingsList() {
         </div>
       </div>
 
-      {/* Meetings Grid */}
-      {meetings.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {meetings.map((meeting) => (
-            <MeetingCard key={meeting.id} meeting={meeting} />
-          ))}
-        </div>
-      ) : (
-        <EmptyState
-          icon={<Filter size={48} />}
-          title="No meetings found"
-          description={
-            statusFilter || year !== new Date().getFullYear()
-              ? 'Try adjusting your filters'
-              : 'Get started by creating your first weekly meeting'
-          }
-          action={
-            !statusFilter && year === new Date().getFullYear()
-              ? {
-                  label: 'Create First Meeting',
-                  onClick: () => window.location.href = '/meetings/new',
-                  icon: <Plus size={18} />,
-                }
-              : undefined
-          }
-        />
-      )}
+          {/* Meetings Grid */}
+          {meetings.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {meetings.map((meeting) => (
+                <MeetingCard key={meeting.id} meeting={meeting} />
+              ))}
+            </div>
+          ) : (
+            <EmptyState
+              icon={<Filter size={48} />}
+              title="No meetings found"
+              description={
+                statusFilter || year !== new Date().getFullYear()
+                  ? 'Try adjusting your filters'
+                  : selectedRound.status === 'planned'
+                  ? 'Start the cash round to create the first meeting'
+                  : 'No meetings have been created for this round yet'
+              }
+            />
+          )}
+        </>
+      ) : null}
     </div>
   );
 }

@@ -23,6 +23,7 @@ export interface Member extends BaseModel {
   next_of_kin_relationship?: string;
   savings_goal?: string; // Decimal as string
   savings_goal_deadline?: string; // Date string
+  role?: string; // Member role (e.g., Chairperson, Secretary, Treasurer, Member)
 }
 
 /**
@@ -65,6 +66,7 @@ export interface CreateMemberRequest {
   next_of_kin_phone?: string;
   next_of_kin_relationship?: string;
   status?: Status;
+  role?: string;
 }
 
 /**

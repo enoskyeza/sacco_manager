@@ -134,6 +134,7 @@ export interface PassbookFilters {
  */
 export interface DeductionRule extends BaseModel {
   sacco: number;
+  cash_round?: number; // Optional: Link to specific CashRound (NEW)
   section: number;
   section_name?: string; // Populated in responses
   amount: string; // Decimal as string
@@ -150,6 +151,7 @@ export interface DeductionRule extends BaseModel {
  */
 export interface CreateDeductionRuleRequest {
   sacco: number;
+  cash_round?: number; // Optional: Link to specific CashRound (NEW)
   section: number;
   amount?: string; // Optional - will be set from section's weekly_amount on backend
   applies_to?: 'recipient' | 'all_members' | 'specific';

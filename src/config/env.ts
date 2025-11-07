@@ -26,10 +26,4 @@ export const ENV = {
   IS_PROD: import.meta.env.PROD,
 } as const;
 
-// Log configuration in development
-if (ENV.IS_DEV) {
-  console.log('🔧 Environment Config:', {
-    API_URL: ENV.API_URL,
-    MODE: import.meta.env.MODE,
-  });
-}
+// Configuration loaded successfully

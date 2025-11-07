@@ -8,8 +8,8 @@ const navigation = [
     icon: Home,
   },
   { 
-    name: 'Meetings', 
-    href: '/meetings', 
+    name: 'Cash Round', 
+    href: '/cash-rounds', 
     icon: Calendar,
   },
   { 

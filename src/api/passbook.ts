@@ -112,4 +112,19 @@ export const passbookApi = {
     const response = await apiClient.post('/saccos/entries/', data);
     return response.data;
   },
+
+  /**
+   * Update a passbook entry
+   */
+  updateEntry: async (entryId: number, data: Partial<CreatePassbookEntryRequest>): Promise<PassbookEntry> => {
+    const response = await apiClient.patch(`/saccos/entries/${entryId}/`, data);
+    return response.data;
+  },
+
+  /**
+   * Delete a passbook entry
+   */
+  deleteEntry: async (entryId: number): Promise<void> => {
+    await apiClient.delete(`/saccos/entries/${entryId}/`);
+  },
 };

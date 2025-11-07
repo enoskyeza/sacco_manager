@@ -21,6 +21,8 @@ export default function MemberForm() {
     address: '',
     date_joined: new Date().toISOString().split('T')[0],
     status: 'active' as Status,
+    member_number: '',
+    role: '',
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -35,6 +37,8 @@ export default function MemberForm() {
         address: member.address || '',
         date_joined: member.date_joined.split('T')[0],
         status: member.status,
+        member_number: member.member_number || '',
+        role: member.role || '',
       });
     }
   }, [member, isEditing]);
@@ -242,6 +246,43 @@ export default function MemberForm() {
               {errors.date_joined && (
                 <p className="mt-1 text-sm text-red-600">{errors.date_joined}</p>
               )}
+            </div>
+
+            {/* Member Number (only when editing) */}
+            {isEditing && (
+              <div>
+                <label htmlFor="member_number" className="block text-sm font-medium text-gray-700 mb-1">
+                  Member Number
+                </label>
+                <input
+                  type="text"
+                  id="member_number"
+                  value={formData.member_number}
+                  onChange={(e) => setFormData({ ...formData, member_number: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
+                  placeholder="e.g., MEM-001"
+                />
+              </div>
+            )}
+
+            {/* Role */}
+            <div className={!isEditing ? "md:col-span-2" : ""}>
+              <label htmlFor="role" className="block text-sm font-medium text-gray-700 mb-1">
+                Role
+              </label>
+              <select
+                id="role"
+                value={formData.role}
+                onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
+              >
+                <option value="">Member</option>
+                <option value="Chairperson">Chairperson</option>
+                <option value="Vice Chairperson">Vice Chairperson</option>
+                <option value="Secretary">Secretary</option>
+                <option value="Treasurer">Treasurer</option>
+                <option value="Committee Member">Committee Member</option>
+              </select>
             </div>
 
             {/* Status (only when editing) */}

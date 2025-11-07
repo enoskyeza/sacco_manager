@@ -2,6 +2,9 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import type { WeeklyMeetingDetail, PassbookSection } from '../types';
 
+type JsPdfAutoTable = jsPDF & { lastAutoTable?: { finalY: number } };
+type JsPdfLink = jsPDF & { textWithLink: (text: string, x: number, y: number, options: { url: string }) => void };
+
 interface MeetingReportData {
   meeting: WeeklyMeetingDetail;
   saccoName: string;
@@ -11,6 +14,8 @@ interface MeetingReportData {
     sectionName: string;
     amount: string;
   }[];
+  cashRoundNumber?: number | string;
+  memberContributions?: { name: string; amount: string; isRecipient?: boolean }[];
 }
 
 /**
@@ -46,7 +51,10 @@ export const generateMeetingReport = async (data: MeetingReportData): Promise<js
   // Meeting Information
   doc.setFontSize(12);
   doc.setFont('helvetica', 'normal');
-  doc.text(`Week ${data.meeting.week_number}, ${data.meeting.year}`, margin, currentY);
+  const titleLine =
+    (data.cashRoundNumber ? `Cashround ${data.cashRoundNumber} - ` : '') +
+    `Week ${data.meeting.week_number}, ${data.meeting.year}`;
+  doc.text(titleLine, margin, currentY);
   currentY += 7;
   
   const meetingDate = new Date(data.meeting.meeting_date).toLocaleDateString('en-US', {
@@ -72,16 +80,19 @@ export const generateMeetingReport = async (data: MeetingReportData): Promise<js
   currentY += 8;
 
   // Summary Table
-  const summaryData = [
-    ['Total Collected', `UGX ${parseFloat(data.meeting.total_collected).toLocaleString()}`],
-    ['Members Present', data.meeting.members_present.toString()],
-    ['Members Absent', data.meeting.members_absent.toString()],
-  ];
+  const summaryRows: [string, string][] = [];
+  if (data.memberContributions && data.memberContributions.length > 0) {
+    data.memberContributions.forEach((mc) => {
+      const name = mc.isRecipient ? `${mc.name} (recipient)` : mc.name;
+      summaryRows.push([name, `UGX ${parseFloat(mc.amount || '0').toLocaleString()}`]);
+    });
+  }
+  summaryRows.push(['Total Collected', `UGX ${parseFloat(data.meeting.total_collected).toLocaleString()}`]);
 
   autoTable(doc, {
     startY: currentY,
     head: [],
-    body: summaryData,
+    body: summaryRows,
     theme: 'grid',
     styles: { fontSize: 11 },
     columnStyles: {
@@ -91,7 +102,7 @@ export const generateMeetingReport = async (data: MeetingReportData): Promise<js
     margin: { left: margin, right: margin },
   });
 
-  currentY = (doc as any).lastAutoTable.finalY + 10;
+  currentY = ((doc as JsPdfAutoTable).lastAutoTable?.finalY || currentY) + 10;
 
   // Financial Breakdown Section
   doc.setFontSize(14);
@@ -100,7 +111,7 @@ export const generateMeetingReport = async (data: MeetingReportData): Promise<js
   currentY += 8;
 
   // Deductions Breakdown
-  const deductionsData: any[] = [];
+  const deductionsData: [string, string][] = [];
   
   if (data.deductionBreakdown && data.deductionBreakdown.length > 0) {
     data.deductionBreakdown.forEach((item) => {
@@ -132,28 +143,42 @@ export const generateMeetingReport = async (data: MeetingReportData): Promise<js
       1: { halign: 'right', cellWidth: 'auto' },
     },
     margin: { left: margin, right: margin },
-    didParseCell: (data) => {
+    didParseCell: (data: unknown) => {
+      const d = data as { section: string; row: { index: number }; cell: { styles: { fontStyle?: string; fillColor?: number[] } } };
       // Make total rows bold
-      if (data.section === 'body' && data.row.index >= deductionsData.length + 1) {
-        data.cell.styles.fontStyle = 'bold';
-        if (data.row.index === deductionsData.length + 1) {
+      if (d.section === 'body' && d.row.index >= deductionsData.length + 1) {
+        d.cell.styles.fontStyle = 'bold';
+        if (d.row.index === deductionsData.length + 1) {
           // Separator row - make it empty
-          data.cell.styles.fillColor = [240, 240, 240];
+          d.cell.styles.fillColor = [240, 240, 240];
         }
       }
     },
   });
 
-  currentY = (doc as any).lastAutoTable.finalY + 15;
+  currentY = (((doc as JsPdfAutoTable).lastAutoTable?.finalY) || currentY) + 15;
 
   // Footer
   doc.setFontSize(9);
   doc.setFont('helvetica', 'italic');
   doc.setTextColor(100);
-  const footerText = `Generated on ${new Date().toLocaleString()}`;
-  doc.text(footerText, pageWidth / 2, doc.internal.pageSize.getHeight() - 15, {
-    align: 'center',
+  const now = new Date();
+  const formatted = now.toLocaleString('en-GB', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
   });
+  const footerPrefix = `Generated on ${formatted} from `;
+  const linkText = 'Tamiti App';
+  const fullWidth = doc.getTextWidth(footerPrefix + linkText);
+  const startX = (pageWidth - fullWidth) / 2;
+  const y = doc.internal.pageSize.getHeight() - 15;
+  doc.text(footerPrefix, startX, y);
+  (doc as JsPdfLink).textWithLink(linkText, startX + doc.getTextWidth(footerPrefix), y, { url: 'https://tamiti.com' });
 
   // Status badge
   doc.setFontSize(10);
@@ -207,13 +232,13 @@ export const shareMeetingReport = async (
 
       if (canShare) {
         await navigator.share({
-          title: `Week ${data.meeting.week_number} Meeting Report`,
-          text: `${data.saccoName} - Week ${data.meeting.week_number}, ${data.meeting.year}`,
+          title: `${data.cashRoundNumber ? `Cashround ${data.cashRoundNumber} - ` : ''}Week ${data.meeting.week_number} Meeting Report`,
+          text: `${data.saccoName} - ${data.cashRoundNumber ? `Cashround ${data.cashRoundNumber} - ` : ''}Week ${data.meeting.week_number}, ${data.meeting.year}`,
           files: [file],
         });
         return;
       }
-    } catch (error) {
+    } catch {
       console.log('Web Share API not fully supported, falling back to WhatsApp');
     }
   }
@@ -222,7 +247,7 @@ export const shareMeetingReport = async (
   if (phoneNumber) {
     const message = encodeURIComponent(
       `📊 ${data.saccoName} Meeting Report\n\n` +
-        `Week ${data.meeting.week_number}, ${data.meeting.year}\n` +
+        `${data.cashRoundNumber ? `Cashround ${data.cashRoundNumber} - ` : ''}Week ${data.meeting.week_number}, ${data.meeting.year}\n` +
         `Total Collected: UGX ${parseFloat(data.meeting.total_collected).toLocaleString()}\n` +
         `Recipient: ${data.meeting.cash_round_recipient_name || 'N/A'}\n\n` +
         `Report generated successfully. Please check your email or contact admin for the PDF.`

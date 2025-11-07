@@ -38,6 +38,9 @@ export interface WeeklyMeeting extends BaseModel {
   meeting_date: string;
   week_number: number;
   year: number;
+  cash_round?: number; // Link to CashRound (NEW)
+  cash_round_number?: number; // Populated for display (NEW)
+  cash_round_name?: string; // Populated for display (NEW)
   cash_round_recipient?: number;
   cash_round_recipient_name?: string; // Populated
   total_collected: string; // Decimal as string
@@ -137,6 +140,7 @@ export interface MeetingFilters {
   year?: number;
   week_number?: number;
   status?: MeetingStatus;
+  cash_round?: number;  // NEW: Filter by cash round
   page?: number;
   page_size?: number;
 }

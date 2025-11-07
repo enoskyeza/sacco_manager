@@ -173,6 +173,7 @@ export default function MembersList() {
                           </div>
                           <div className="ml-4">
                             <div className="text-sm font-medium text-gray-900">
+                              {member.role && <span className="text-primary font-semibold">{member.role} - </span>}
                               {member.first_name} {member.last_name}
                             </div>
                             <div className="text-sm text-gray-500">
@@ -182,9 +183,9 @@ export default function MembersList() {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{member.phone}</div>
-                        {member.email && (
-                          <div className="text-sm text-gray-500">{member.email}</div>
+                        <div className="text-sm text-gray-900">#{member.member_number}</div>
+                        {member.phone && (
+                          <div className="text-sm text-gray-500">{member.phone}</div>
                         )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -248,8 +249,10 @@ export default function MembersList() {
                         {member.status}
                       </span>
                     </div>
+                    <p className="text-xs text-gray-400 font-medium mt-1">
+                      {member.role || 'Member'}
+                    </p>
                     <p className="text-sm text-gray-500 mt-1">#{member.member_number}</p>
-                    <p className="text-sm text-gray-500 mt-1">{member.phone}</p>
                     <div className="flex items-center justify-between mt-2">
                       <span className="text-sm font-medium text-gray-900">
                         {formatCurrency(member.total_savings)}

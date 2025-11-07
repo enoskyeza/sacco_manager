@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, DollarSign, TrendingUp, CheckCircle, PiggyBank, Plus, XCircle, Download, Share2, Printer, ChevronDown } from 'lucide-react';
 import { useMeeting, useMeetingContributions, useCreateContribution, useUpdateContribution, useDeleteContribution, useFinalizeMeeting } from '../../hooks/useMeetings';
@@ -6,8 +6,10 @@ import { toast } from 'sonner';
 import { useMembers } from '../../hooks/useMembers';
 import { useSacco } from '../../hooks/useSacco';
 import { useQuery } from '@tanstack/react-query';
+import { cashRoundApi } from '../../api/cashRound';
 import { passbookApi } from '../../api/passbook';
 import { meetingsApi } from '../../api/meetings';
+import { deductionsApi } from '../../api/deductions';
 import { formatCurrency, formatDate } from '../../utils/format';
 import { downloadMeetingReport, printMeetingReport, shareMeetingReport } from '../../utils/printMeetingReport';
 import { Button, Card, CardBody, CardHeader, CardTitle, MeetingStatusBadge, Modal, Input } from '../../components/common';
@@ -39,12 +41,18 @@ export default function MeetingDetail() {
     enabled: !!currentSacco,
   });
 
-  // DEBUG: Log initial data
-  console.log('=== MEETING DETAIL DEBUG ===');
-  console.log('Meeting ID:', meetingId);
-  console.log('Meeting Data:', meeting);
-  console.log('Contributions:', contributions);
-  console.log('Meeting Entries (Extra Payments):', meetingEntries);
+  const { data: deductionRules = [] } = useQuery({
+    queryKey: ['deduction-rules', currentSacco?.id],
+    queryFn: () => deductionsApi.getDeductionRules(currentSacco!.id),
+    enabled: !!currentSacco,
+  });
+
+  // Fetch cash round details if meeting has one
+  const { data: cashRound } = useQuery({
+    queryKey: ['cash-round', currentSacco?.id, meeting?.cash_round],
+    queryFn: () => cashRoundApi.getCashRound(currentSacco!.id, meeting!.cash_round!),
+    enabled: !!currentSacco && !!meeting?.cash_round,
+  });
 
   const createContribution = useCreateContribution();
   const updateContribution = useUpdateContribution();
@@ -60,6 +68,98 @@ export default function MeetingDetail() {
 
   const isLoading = meetingLoading || membersLoading;
   const weeklyPayment = currentSacco?.cash_round_amount || '51000';
+
+  // Get cash round number from various sources
+  const cashRoundNumber =
+    meeting?.cash_round_number ?? // From meeting if populated
+    cashRound?.round_number; // From fetched cash round
+
+  // Memoize deduction info to prevent infinite loops
+  const deductionInfo = useMemo(() => {
+    console.log('🔍 Computing deductionInfo...');
+    console.log('  Meeting:', meeting?.id, 'Date:', meeting?.meeting_date, 'Cash Round:', meeting?.cash_round);
+    console.log('  Total deduction rules loaded:', deductionRules.length);
+    console.log('  Total sections loaded:', sections.length);
+    
+    if (!meeting) {
+      console.log('  ❌ No meeting, returning 0');
+      return { method: null, rules: [], total: 0, count: 0 };
+    }
+    
+    const meetingDate = new Date(meeting.meeting_date);
+    console.log('  Meeting date:', meetingDate);
+    
+    const applicableRules = deductionRules.filter((r) => {
+      const fromOk = !r.effective_from || new Date(r.effective_from) <= meetingDate;
+      const untilOk = !r.effective_until || new Date(r.effective_until) >= meetingDate;
+      const cashRoundOk = !r.cash_round || !meeting.cash_round || r.cash_round === meeting.cash_round;
+      const passes = r.is_active && r.applies_to === 'recipient' && fromOk && untilOk && cashRoundOk;
+      
+      if (!passes) {
+        console.log('  ⏭️  Skipping rule:', r.section_name, '- Active:', r.is_active, 'AppliesTo:', r.applies_to, 'DateOk:', fromOk && untilOk, 'CashRoundOk:', cashRoundOk);
+      }
+      
+      return passes;
+    });
+
+    console.log('  ✅ Applicable rules:', applicableRules.length);
+    applicableRules.forEach(r => console.log('    -', r.section_name, ':', r.amount));
+
+    if (applicableRules.length > 0) {
+      const total = applicableRules.reduce((sum, r) => sum + parseFloat(r.amount || '0'), 0);
+      console.log('  📊 Using rules, Total:', total);
+      return { method: 'rules' as const, rules: applicableRules, total, count: applicableRules.length };
+    }
+
+    const compulsorySections = sections.filter(s => s.is_compulsory);
+    console.log('  📊 No rules, using', compulsorySections.length, 'compulsory sections');
+    compulsorySections.forEach(s => console.log('    -', s.name, ':', s.weekly_amount));
+    const total = compulsorySections.reduce((sum, section) => sum + parseFloat(section.weekly_amount || '0'), 0);
+    console.log('  📊 Sections total:', total);
+    return { method: 'sections' as const, rules: [], total, count: 0 };
+  }, [meeting, deductionRules, sections]);
+
+  // Calculate member contributions including extras for report
+  const memberContributionsForReport = contributions.map((c) => {
+    const name = c.member_name || (() => {
+      const m = members.find((mm) => mm.id === c.member);
+      return m ? `${m.first_name} ${m.last_name}` : `Member #${c.member}`;
+    })();
+    
+    // Find passbook for this member
+    const memberPassbook = passbooks.find(pb => pb.member === c.member);
+    
+    // Calculate extras for this member from non-compulsory sections
+    const compulsorySectionIds = sections.filter(s => s.is_compulsory).map(s => s.id);
+    const memberExtras = meetingEntries
+      .filter(entry => 
+        memberPassbook && 
+        entry.passbook === memberPassbook.id && 
+        entry.transaction_type === 'credit' &&
+        !compulsorySectionIds.includes(entry.section)
+      )
+      .reduce((sum, entry) => sum + parseFloat(entry.amount || '0'), 0);
+    
+    const compulsoryAmount = parseFloat(c.amount_contributed || '0');
+    const totalAmount = compulsoryAmount + memberExtras;
+    
+    return {
+      name,
+      amount: totalAmount.toString(),
+      compulsory: c.amount_contributed || '0',
+      extras: memberExtras > 0 ? memberExtras.toString() : undefined,
+      isRecipient: meeting?.cash_round_recipient === c.member,
+    };
+  });
+
+  // DEBUG: Log calculated data
+  console.log('=== MEETING DETAIL DEBUG ===');
+  console.log('Meeting ID:', meetingId);
+  console.log('Meeting Status:', meeting?.status);
+  console.log('Backend total_collected:', meeting?.total_collected);
+  console.log('Contributions:', contributions.length);
+  console.log('Meeting Entries:', meetingEntries.length);
+  console.log('Member Contributions for Report:', memberContributionsForReport);
 
   if (isLoading) {
     return <Loading message="Loading meeting..." />;
@@ -111,13 +211,6 @@ export default function MeetingDetail() {
     }
   };
 
-  // Calculate deductions (sum of compulsory sections)
-  const calculateDeductions = () => {
-    const compulsorySections = sections.filter(s => s.is_compulsory);
-    return compulsorySections.reduce((sum, section) => {
-      return sum + parseFloat(section.weekly_amount || '0');
-    }, 0);
-  };
 
   // Calculate total extra payments from passbook entries (excluding compulsory deductions)
   const calculateExtraPayments = () => {
@@ -146,19 +239,37 @@ export default function MeetingDetail() {
     return total;
   };
 
+  // Calculate total collected (compulsory + extras)
+  const calculateTotalCollected = () => {
+    const weekly = calculateWeeklyPayments(); // Compulsory contributions
+    const extras = calculateExtraPayments(); // Optional/extra payments
+    const total = weekly + extras;
+    console.log('📊 Total Collected: Weekly', weekly, '+ Extras', extras, '=', total);
+    return total;
+  };
+
+  // Calculate amount to recipient
+  // CRITICAL: Recipient gets ALL compulsory payments minus deductions
+  // Extras do NOT go to recipient - they go to bank!
+  // Formula: Total Compulsory Collected - Deductions
+  const calculateAmountToRecipient = () => {
+    const totalCompulsory = calculateWeeklyPayments(); // All compulsory from everyone
+    const deductions = deductionInfo.total;
+    const amount = Math.max(0, totalCompulsory - deductions);
+    
+    console.log('💰 Amount to Recipient: All Compulsory', totalCompulsory, '- Deductions', deductions, '=', amount, '(Extras go to bank!)');
+    return amount;
+  };
+
   // Calculate to bank
-  // CRITICAL: After finalization, use backend calculated value (single source of truth)
-  // Before finalization, calculate from deductions + extras
+  // Formula: Deductions + All Extras
+  // All extras go to bank, not to recipient!
   const calculateToBank = () => {
-    if (meeting.status === 'completed') {
-      // POST-FINALIZATION: Use backend value (already calculated from passbook entries)
-      return parseFloat(meeting.amount_to_bank || '0');
-    } else {
-      // PRE-FINALIZATION: Calculate from sections + extras
-      const deductions = calculateDeductions(); // deductions from the recipient
-      const extra = calculateExtraPayments();   // any extras already recorded
-      return deductions + extra;
-    }
+    const deductions = deductionInfo.total;
+    const extras = calculateExtraPayments();
+    const total = deductions + extras;
+    console.log('🏦 To Bank: Deductions', deductions, '+ Extras', extras, '=', total);
+    return total;
   };
 
   // Handle opening extra modal
@@ -330,60 +441,20 @@ export default function MeetingDetail() {
     }, 0);
   };
 
-  // Build deduction breakdown for report using actual meeting entries
+  // Build deduction breakdown for report using deduction rules
   const buildDeductionBreakdown = () => {
     const breakdown: { sectionName: string; amount: string }[] = [];
     
-    // Get recipient's passbook
-    const recipientPassbook = passbooks.find(
-      pb => pb.member === meeting.cash_round_recipient
-    );
-    
-    if (!recipientPassbook) {
-      // Fallback to section amounts if no passbook found
-      const compulsorySections = sections.filter(s => s.is_compulsory);
-      compulsorySections.forEach(section => {
+    if (deductionInfo.method === 'rules' && deductionInfo.rules.length > 0) {
+      // Use deduction rules
+      deductionInfo.rules.forEach(rule => {
         breakdown.push({
-          sectionName: section.name,
-          amount: section.weekly_amount || '0',
+          sectionName: rule.section_name || 'Unknown',
+          amount: rule.amount || '0',
         });
       });
-      return breakdown;
-    }
-    
-    // Get deduction entries from this meeting for the recipient
-    const recipientEntries = meetingEntries.filter(
-      entry => entry.passbook === recipientPassbook.id && entry.transaction_type === 'credit'
-    );
-    
-    // Group by section and sum amounts
-    const sectionMap = new Map<number, { name: string; amount: number }>();
-    
-    recipientEntries.forEach(entry => {
-      const section = sections.find(s => s.id === entry.section);
-      if (section && section.is_compulsory) {
-        const existing = sectionMap.get(entry.section);
-        if (existing) {
-          existing.amount += parseFloat(entry.amount);
-        } else {
-          sectionMap.set(entry.section, {
-            name: section.name,
-            amount: parseFloat(entry.amount),
-          });
-        }
-      }
-    });
-    
-    // Convert to breakdown array
-    sectionMap.forEach(({ name, amount }) => {
-      breakdown.push({
-        sectionName: name,
-        amount: amount.toString(),
-      });
-    });
-    
-    // If no entries found, use section defaults
-    if (breakdown.length === 0) {
+    } else {
+      // Fallback to compulsory sections
       const compulsorySections = sections.filter(s => s.is_compulsory);
       compulsorySections.forEach(section => {
         breakdown.push({
@@ -396,17 +467,23 @@ export default function MeetingDetail() {
     return breakdown;
   };
 
-  // Report handlers
   const handleDownloadReport = async () => {
     try {
       await downloadMeetingReport({
-        meeting,
+        meeting: {
+          ...meeting,
+          total_collected: calculateTotalCollected().toString(),
+          total_deductions: deductionInfo.total.toString(),
+          amount_to_recipient: calculateAmountToRecipient().toString(),
+          amount_to_bank: calculateToBank().toString(),
+        } as any,
         saccoName: currentSacco?.name || 'Group',
-        saccoLogo: (currentSacco?.settings as any)?.logo as string | undefined,
+        saccoLogo: currentSacco?.logo_url,
         sections,
         deductionBreakdown: buildDeductionBreakdown(),
+        cashRoundNumber: cashRoundNumber,
+        memberContributions: memberContributionsForReport,
       });
-      toast.success('Report downloaded successfully!');
     } catch (error) {
       console.error('Error downloading report:', error);
       toast.error('Failed to download report');
@@ -416,11 +493,19 @@ export default function MeetingDetail() {
   const handlePrintReport = async () => {
     try {
       await printMeetingReport({
-        meeting,
+        meeting: {
+          ...meeting,
+          total_collected: calculateTotalCollected().toString(),
+          total_deductions: deductionInfo.total.toString(),
+          amount_to_recipient: calculateAmountToRecipient().toString(),
+          amount_to_bank: calculateToBank().toString(),
+        } as any,
         saccoName: currentSacco?.name || 'Group',
-        saccoLogo: (currentSacco?.settings as any)?.logo as string | undefined,
+        saccoLogo: currentSacco?.logo_url,
         sections,
         deductionBreakdown: buildDeductionBreakdown(),
+        cashRoundNumber: cashRoundNumber,
+        memberContributions: memberContributionsForReport,
       });
     } catch (error) {
       console.error('Error printing report:', error);
@@ -432,11 +517,19 @@ export default function MeetingDetail() {
     try {
       await shareMeetingReport(
         {
-          meeting,
+          meeting: {
+            ...meeting,
+            total_collected: calculateTotalCollected().toString(),
+            total_deductions: deductionInfo.total.toString(),
+            amount_to_recipient: calculateAmountToRecipient().toString(),
+            amount_to_bank: calculateToBank().toString(),
+          } as any,
           saccoName: currentSacco?.name || 'Group',
-          saccoLogo: (currentSacco?.settings as any)?.logo as string | undefined,
+          saccoLogo: currentSacco?.logo_url,
           sections,
           deductionBreakdown: buildDeductionBreakdown(),
+          cashRoundNumber: cashRoundNumber,
+          memberContributions: memberContributionsForReport,
         },
         currentSacco?.phone
       );
@@ -548,10 +641,10 @@ export default function MeetingDetail() {
               <div>
                 <p className="text-sm text-gray-600">Total Collected</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {formatCurrency(meeting.total_collected || '0')}
+                  {formatCurrency(calculateTotalCollected().toString())}
                 </p>
                 <p className="text-xs text-gray-500 mt-1">
-                  Cash Round Contributions
+                  Compulsory + Extras
                 </p>
               </div>
             </div>
@@ -567,14 +660,20 @@ export default function MeetingDetail() {
               <div>
                 <p className="text-sm text-gray-600">Deductions</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {meeting.status === 'completed' 
-                    ? formatCurrency(meeting.total_deductions || '0')
-                    : formatCurrency(calculateDeductions().toString())
-                  }
+                  {formatCurrency(deductionInfo.total.toString())}
                 </p>
-                <p className="text-xs text-gray-500 mt-1">
-                  From Recipient
-                </p>
+                <div className="text-xs mt-1">
+                  <p className="text-gray-500">From Recipient</p>
+                  {deductionInfo.method && (
+                    <p className={deductionInfo.method === 'rules' ? 'text-green-600' : 'text-amber-600'}>
+                      {deductionInfo.method === 'rules' ? (
+                        <span>✓ Using {deductionInfo.count} deduction rule{deductionInfo.count !== 1 ? 's' : ''}</span>
+                      ) : (
+                        <span>⚠ Using section defaults (no rules)</span>
+                      )}
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
           </CardBody>
@@ -589,11 +688,14 @@ export default function MeetingDetail() {
               <div>
                 <p className="text-sm text-gray-600">To Member</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {formatCurrency(meeting.amount_to_recipient || '0')}
+                  {formatCurrency(calculateAmountToRecipient().toString())}
                 </p>
-                <p className="text-xs text-gray-500 mt-1">
-                  Cash Round - Deductions
-                </p>
+                <div className="text-xs text-gray-500 mt-1">
+                  <p>All Compulsory - Deductions</p>
+                  <p className="text-indigo-600 mt-0.5 text-[10px]">
+                    (Extras go to bank)
+                  </p>
+                </div>
               </div>
             </div>
           </CardBody>
@@ -619,6 +721,66 @@ export default function MeetingDetail() {
         </Card>
       </div>
 
+      {/* Deduction Breakdown - Show detailed breakdown */}
+      {deductionInfo.method && deductionInfo.total > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Deduction Breakdown</CardTitle>
+          </CardHeader>
+          <CardBody>
+            <div className="space-y-2">
+              {deductionInfo.method === 'rules' ? (
+                <>
+                  {deductionInfo.rules.map((rule, index) => (
+                    <div key={rule.id || index} className="flex justify-between items-center py-2 border-b border-gray-100 last:border-0">
+                      <div className="flex items-center gap-2">
+                        <div
+                          className="w-2 h-2 rounded-full"
+                          style={{ backgroundColor: sections.find(s => s.id === rule.section)?.color || '#6366f1' }}
+                        />
+                        <span className="text-sm text-gray-700">{rule.section_name}</span>
+                      </div>
+                      <span className="text-sm font-semibold text-gray-900">
+                        {formatCurrency(rule.amount)}
+                      </span>
+                    </div>
+                  ))}
+                  <div className="flex justify-between items-center pt-2 border-t-2 border-gray-200">
+                    <span className="text-sm font-semibold text-gray-900">Total Deductions</span>
+                    <span className="text-sm font-bold text-gray-900">
+                      {formatCurrency(deductionInfo.total.toString())}
+                    </span>
+                  </div>
+                </>
+              ) : (
+                <>
+                  {sections.filter(s => s.is_compulsory).map((section) => (
+                    <div key={section.id} className="flex justify-between items-center py-2 border-b border-gray-100 last:border-0">
+                      <div className="flex items-center gap-2">
+                        <div
+                          className="w-2 h-2 rounded-full"
+                          style={{ backgroundColor: section.color }}
+                        />
+                        <span className="text-sm text-gray-700">{section.name}</span>
+                      </div>
+                      <span className="text-sm font-semibold text-gray-900">
+                        {formatCurrency(section.weekly_amount)}
+                      </span>
+                    </div>
+                  ))}
+                  <div className="flex justify-between items-center pt-2 border-t-2 border-gray-200">
+                    <span className="text-sm font-semibold text-gray-900">Total Deductions</span>
+                    <span className="text-sm font-bold text-gray-900">
+                      {formatCurrency(deductionInfo.total.toString())}
+                    </span>
+                  </div>
+                </>
+              )}
+            </div>
+          </CardBody>
+        </Card>
+      )}
+
       {/* Cash Round Recipient */}
       {meeting.cash_round_recipient_name && (
         <Card>
@@ -636,7 +798,7 @@ export default function MeetingDetail() {
               <div className="text-right">
                 <p className="text-sm text-gray-600 mb-1">Amount</p>
                 <p className="text-2xl font-bold text-indigo-600">
-                  {formatCurrency(meeting.amount_to_recipient)}
+                  {formatCurrency(calculateAmountToRecipient().toString())}
                 </p>
               </div>
             </div>

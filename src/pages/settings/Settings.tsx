@@ -3,21 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { useSacco } from '../../hooks/useSacco';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { saccoApi } from '../../api/sacco';
-import { formatCurrency } from '../../utils/format';
 import { Button, Card, CardBody, CardHeader, CardTitle, Input } from '../../components/common';
-import { Save, Building2, Mail, Phone, MapPin, Calendar, DollarSign, Receipt, RotateCw, Wallet, Store } from 'lucide-react';
+import { Save, Building2, Mail, Phone, MapPin, Receipt, RotateCw, Wallet, Store } from 'lucide-react';
 import { toast } from 'sonner';
-import type { UpdateSaccoRequest, DayOfWeek } from '../../types';
-
-const DAYS_OF_WEEK: DayOfWeek[] = [
-  'Monday',
-  'Tuesday',
-  'Wednesday',
-  'Thursday',
-  'Friday',
-  'Saturday',
-  'Sunday',
-];
+import type { UpdateSaccoRequest } from '../../types';
 
 export default function Settings() {
   const { currentSacco } = useSacco();
@@ -31,8 +20,6 @@ export default function Settings() {
     email: '',
     phone: '',
     address: '',
-    cash_round_amount: '',
-    meeting_day: 'Saturday',
   });
 
   // Populate form with current SACCO data
@@ -45,8 +32,6 @@ export default function Settings() {
         email: currentSacco.email || '',
         phone: currentSacco.phone || '',
         address: currentSacco.address || '',
-        cash_round_amount: currentSacco.cash_round_amount || '',
-        meeting_day: currentSacco.meeting_day || 'Saturday',
       });
     }
   }, [currentSacco]);
@@ -97,17 +82,17 @@ export default function Settings() {
         <div className="flex flex-wrap gap-2">
           <Button
             variant="outline"
-            onClick={() => navigate('/settings/deduction-rules')}
-            leftIcon={<Receipt size={18} />}
+            onClick={() => navigate('/settings/cash-rounds')}
+            leftIcon={<RotateCw size={18} />}
           >
-            Deductions
+            Cash Rounds
           </Button>
           <Button
             variant="outline"
-            onClick={() => navigate('/settings/cash-round')}
-            leftIcon={<RotateCw size={18} />}
+            onClick={() => navigate('/settings/sections')}
+            leftIcon={<Receipt size={18} />}
           >
-            Cash Round
+            Passbook Sections
           </Button>
           <Button
             variant="outline"
@@ -207,61 +192,6 @@ export default function Settings() {
                 leftIcon={<MapPin size={18} />}
               />
             </div>
-          </CardBody>
-        </Card>
-
-        {/* Meeting Configuration */}
-        <Card>
-          <CardHeader>
-            <CardTitle>
-              <div className="flex items-center gap-2">
-                <Calendar size={20} className="text-gray-600" />
-                <span>Meeting Configuration</span>
-              </div>
-            </CardTitle>
-          </CardHeader>
-          <CardBody>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Meeting Day
-                </label>
-                <select
-                  value={formData.meeting_day}
-                  onChange={(e) => handleChange('meeting_day', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                >
-                  {DAYS_OF_WEEK.map((day) => (
-                    <option key={day} value={day}>
-                      {day}
-                    </option>
-                  ))}
-                </select>
-                <p className="text-xs text-gray-500 mt-1">
-                  Day of the week for weekly meetings
-                </p>
-              </div>
-              <Input
-                label="Cash Round Amount"
-                type="number"
-                value={formData.cash_round_amount}
-                onChange={(e) => handleChange('cash_round_amount', e.target.value)}
-                placeholder="51000"
-                min="0"
-                step="1000"
-                leftIcon={<DollarSign size={18} />}
-                required
-                helperText="Standard weekly contribution per member"
-              />
-            </div>
-            {formData.cash_round_amount && (
-              <div className="mt-4 p-4 bg-indigo-50 rounded-lg">
-                <p className="text-sm text-indigo-900">
-                  <strong>Current Setting:</strong> Each member contributes{' '}
-                  <strong>{formatCurrency(formData.cash_round_amount)}</strong> per week
-                </p>
-              </div>
-            )}
           </CardBody>
         </Card>
 

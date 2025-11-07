@@ -16,7 +16,7 @@ export default function MeetingCard({ meeting }: MeetingCardProps) {
     : 0;
 
   return (
-    <Link to={`/meetings/${meeting.id}`}>
+    <Link to={`/cash-rounds/meetings/${meeting.id}`}>
       <Card hover>
         <CardBody>
           <div className="space-y-4">
@@ -42,6 +42,7 @@ export default function MeetingCard({ meeting }: MeetingCardProps) {
                 <div>
                   <p className="text-xs text-gray-500">Collected</p>
                   <p className="font-semibold text-gray-900">
+                    {/* TODO: Backend should include extras in total_collected */}
                     {formatCurrency(meeting.total_collected)}
                   </p>
                 </div>
