@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus, Calendar, Users, DollarSign, Settings as SettingsIcon, ArrowLeft, Edit, Trash2 } from 'lucide-react';
+import { Plus, Calendar, Users, DollarSign, Settings as SettingsIcon, ArrowLeft, Trash2 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSacco } from '../../hooks/useSacco';
 import { cashRoundApi } from '../../api/cashRound';
