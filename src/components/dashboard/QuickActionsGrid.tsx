@@ -31,7 +31,7 @@ const quickActions: QuickAction[] = [
     color: 'bg-green-500',
   },
   {
-    title: 'New Loan',
+    title: 'Loans',
     description: 'Process loan application',
     href: '/loans/new',
     icon: <DollarSign size={24} />,
