@@ -23,6 +23,30 @@ export interface DashboardMetrics {
   } | null;
 }
 
+export type PendingPaymentStatus = 'due_soon' | 'overdue';
+
+export type PendingPaymentType = 'loan' | 'meeting';
+
+export interface PendingPaymentItem {
+  type: PendingPaymentType;
+  loan_id?: number;
+  loan_number?: string;
+  meeting_id?: number;
+  week_number?: number;
+  cash_round_name?: string | null;
+  amount_due: string; // Decimal as string
+  due_date: string; // Date string
+  status: PendingPaymentStatus;
+  days_until_due: number;
+}
+
+export interface MemberPendingPayments {
+  member_id: number;
+  has_pending: boolean;
+  total_count: number;
+  items: PendingPaymentItem[];
+}
+
 /**
  * Trend data point
  */

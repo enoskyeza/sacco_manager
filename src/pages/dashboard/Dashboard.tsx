@@ -1,10 +1,11 @@
-import { Users, Wallet, PiggyBank } from 'lucide-react';
+import { Users, Wallet, PiggyBank, AlertTriangle } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../../hooks/useAuth';
 import { useSacco } from '../../hooks/useSacco';
 import { useCurrentMember } from '../../hooks/useCurrentMember';
 import { dashboardApi } from '../../api';
 import { formatCurrency, parseDecimal } from '../../utils/format';
+import type { MemberPendingPayments } from '../../types';
 import { Loading } from '../../components/common/Spinner';
 import UpcomingMeetingCard from '../../components/dashboard/UpcomingMeetingCard';
 import QuickActionsGrid from '../../components/dashboard/QuickActionsGrid';
@@ -12,6 +13,18 @@ import QuickActionsGrid from '../../components/dashboard/QuickActionsGrid';
 export default function Dashboard() {
   const { user } = useAuth();
   const { currentSacco } = useSacco();
+  const { data: currentMember } = useCurrentMember();
+
+  // Use SACCO member role for secretary checks
+  const isSecretary = !!(
+    currentMember &&
+    (currentMember.role?.toLowerCase().includes('secretary') ?? false)
+  );
+
+  // Temporary debugging log for role-based UI
+  console.log('Dashboard user:', user);
+  console.log('Dashboard member:', currentMember);
+  console.log('Dashboard sacco role:', currentMember?.role, 'isSecretary:', isSecretary);
 
   // Fetch dashboard metrics
   const { data: metrics, isLoading } = useQuery({
@@ -20,8 +33,12 @@ export default function Dashboard() {
     enabled: !!currentSacco,
   });
 
-  // Fetch current member data for savings goal
-  const { data: currentMember } = useCurrentMember();
+  // Fetch pending payments for the current member (loans + weekly contributions)
+  const { data: pendingPayments } = useQuery<MemberPendingPayments>({
+    queryKey: ['pending-payments', currentSacco?.id, currentMember?.id],
+    queryFn: () => dashboardApi.getMemberPendingPayments(currentSacco!.id, currentMember!.id),
+    enabled: !!currentSacco && !!currentMember,
+  });
 
   // Calculate savings goal progress
   const savingsGoal = currentMember?.savings_goal ? parseDecimal(currentMember.savings_goal) : null;
@@ -43,6 +60,93 @@ export default function Dashboard() {
           Here's what's happening with your Group today
         </p>
       </div>
+
+      {/* Pending Payments Alert (only show when there are pending items) */}
+      {pendingPayments?.has_pending && pendingPayments.items.length > 0 && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4 md:p-5 shadow-sm">
+          <div className="flex items-start gap-3">
+            <div className="mt-0.5 text-red-500">
+              <AlertTriangle size={20} />
+            </div>
+            <div className="flex-1">
+              <div className="flex flex-wrap items-baseline justify-between gap-2 mb-2">
+                <h2 className="text-sm md:text-base font-semibold text-red-800">
+                  You have {pendingPayments.total_count} pending payment
+                  {pendingPayments.total_count > 1 ? 's' : ''}
+                </h2>
+                <span className="text-xs font-medium text-red-600 uppercase tracking-wide">
+                  Due within 3 days or overdue
+                </span>
+              </div>
+              <div className="space-y-1.5 text-xs md:text-sm text-red-800 max-h-40 overflow-y-auto">
+                {pendingPayments.items.map((item) => {
+                  if (item.type === 'loan') {
+                    return (
+                      <div
+                        key={`loan-${item.loan_id}`}
+                        className="flex justify-between items-center gap-2"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium truncate">
+                            Loan {item.loan_number} repayment
+                          </p>
+                          <p className="text-xs text-red-700 truncate">
+                            Due {item.status === 'overdue' ? 'since' : 'by'}{' '}
+                            {item.due_date} · {formatCurrency(item.amount_due)} outstanding
+                          </p>
+                        </div>
+                        <span
+                          className={`shrink-0 inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold ${{
+                            overdue: 'bg-red-600 text-white',
+                            due_soon: 'bg-red-100 text-red-700',
+                          }[item.status]}`}
+                        >
+                          {item.status === 'overdue'
+                            ? 'Overdue'
+                            : `Due in ${item.days_until_due} day${
+                                item.days_until_due === 1 ? '' : 's'
+                              }`}
+                        </span>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div
+                      key={`meeting-${item.meeting_id}`}
+                      className="flex justify-between items-center gap-2"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium truncate">
+                          Weekly cash round contribution
+                        </p>
+                        <p className="text-xs text-red-700 truncate">
+                          Week {item.week_number}
+                          {item.cash_round_name ? ` · ${item.cash_round_name}` : ''} · Due{' '}
+                          {item.status === 'overdue' ? 'since' : 'by'} {item.due_date} ·{' '}
+                          {formatCurrency(item.amount_due)}
+                        </p>
+                      </div>
+                      <span
+                        className={`shrink-0 inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold ${{
+                          overdue: 'bg-red-600 text-white',
+                          due_soon: 'bg-red-100 text-red-700',
+                        }[item.status]}`}
+                      >
+                        {item.status === 'overdue'
+                          ? 'Overdue'
+                          : `Due in ${item.days_until_due} day${
+                              item.days_until_due === 1 ? '' : 's'
+                            }`}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Metrics Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -112,7 +216,7 @@ export default function Dashboard() {
       {/* Quick Actions */}
       <div>
         <h2 className="text-xl font-semibold text-gray-900 mb-4">Quick Actions</h2>
-        <QuickActionsGrid />
+        <QuickActionsGrid isSecretary={isSecretary} />
       </div>
 
       {/* Upcoming Meeting */}

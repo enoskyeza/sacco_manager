@@ -13,6 +13,7 @@ interface ContributionRowProps {
   isPending?: boolean;
   disabled?: boolean;
   isRecipient?: boolean;
+  canEdit?: boolean;
 }
 
 export default function ContributionRow({
@@ -24,6 +25,7 @@ export default function ContributionRow({
   isPending,
   disabled,
   isRecipient = false,
+  canEdit = true,
 }: ContributionRowProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [amount, setAmount] = useState(contribution?.amount_contributed || expectedAmount);
@@ -77,7 +79,7 @@ export default function ContributionRow({
       </div>
 
       {/* Amount Input/Display */}
-      {isEditing ? (
+      {isEditing && canEdit ? (
         <form onSubmit={handleSubmit} className="flex items-center gap-2">
           <Input
             type="number"
@@ -117,23 +119,27 @@ export default function ContributionRow({
             </p>
             <p className="text-xs text-gray-500">Paid</p>
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleUndo}
-            disabled={isPending || disabled}
-            leftIcon={<RotateCcw size={16} />}
-          >
-            Undo
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setIsEditing(true)}
-            disabled={isPending || disabled}
-          >
-            <Edit2 size={16} />
-          </Button>
+          {canEdit && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleUndo}
+              disabled={isPending || disabled}
+              leftIcon={<RotateCcw size={16} />}
+            >
+              Undo
+            </Button>
+          )}
+          {canEdit && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsEditing(true)}
+              disabled={isPending || disabled}
+            >
+              <Edit2 size={16} />
+            </Button>
+          )}
         </div>
       ) : (
         <div className="flex items-center gap-2">
@@ -143,23 +149,27 @@ export default function ContributionRow({
             </p>
             <p className="text-xs text-gray-500">Expected</p>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleQuickPay}
-            isLoading={isPending}
-            disabled={disabled}
-          >
-            Mark Paid
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setIsEditing(true)}
-            disabled={isPending || disabled}
-          >
-            <Edit2 size={16} />
-          </Button>
+          {canEdit && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleQuickPay}
+              isLoading={isPending}
+              disabled={disabled}
+            >
+              Mark Paid
+            </Button>
+          )}
+          {canEdit && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsEditing(true)}
+              disabled={isPending || disabled}
+            >
+              <Edit2 size={16} />
+            </Button>
+          )}
         </div>
       )}
     </div>

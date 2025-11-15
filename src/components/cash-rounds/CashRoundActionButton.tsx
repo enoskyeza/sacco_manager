@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { cashRoundApi } from '../../api/cashRound';
 import type { CashRound } from '../../api/cashRound';
 import { useSacco } from '../../hooks/useSacco';
+import { useCurrentMember } from '../../hooks/useCurrentMember';
 
 interface CashRoundActionButtonProps {
   cashRound: CashRound;
@@ -19,7 +20,13 @@ export default function CashRoundActionButton({
   onSuccess,
 }: CashRoundActionButtonProps) {
   const { currentSacco } = useSacco();
+  const { data: currentMember } = useCurrentMember();
   const [isLoading, setIsLoading] = useState(false);
+
+  const isSecretary = !!(
+    currentMember &&
+    (currentMember.role?.toLowerCase().includes('secretary') ?? false)
+  );
 
   const handleStartRound = async () => {
     if (!currentSacco?.id) return;
@@ -98,17 +105,21 @@ export default function CashRoundActionButton({
   if (cashRound.status === 'active') {
     const canStartNext = hasNoMeetings || lastMeetingCompleted;
 
-    if (canStartNext) {
+    if (canStartNext && isSecretary) {
       return (
-            <button
-              onClick={handleStartNextMeeting}
-              disabled={isLoading}
-              className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
-            >
-              <Plus className="h-5 w-5" />
-              {isLoading ? 'Creating...' : 'Start Next Meeting'}
-            </button>
+        <button
+          onClick={handleStartNextMeeting}
+          disabled={isLoading}
+          className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+        >
+          <Plus className="h-5 w-5" />
+          {isLoading ? 'Creating...' : 'Start Next Meeting'}
+        </button>
       );
+    }
+
+    if (canStartNext && !isSecretary) {
+      return null;
     }
 
     // Current meeting is still in progress

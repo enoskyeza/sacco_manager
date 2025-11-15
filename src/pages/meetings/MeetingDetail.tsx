@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { useMembers } from '../../hooks/useMembers';
 import { useSacco } from '../../hooks/useSacco';
 import { useQuery } from '@tanstack/react-query';
+import { useCurrentMember } from '../../hooks/useCurrentMember';
 import { cashRoundApi } from '../../api/cashRound';
 import { passbookApi } from '../../api/passbook';
 import { meetingsApi } from '../../api/meetings';
@@ -19,6 +20,7 @@ import type { Member } from '../../types';
 export default function MeetingDetail() {
   const { id } = useParams<{ id: string }>();
   const { currentSacco } = useSacco();
+  const { data: currentMember } = useCurrentMember();
   const navigate = useNavigate();
   const meetingId = parseInt(id!);
 
@@ -79,6 +81,11 @@ export default function MeetingDetail() {
 
   const isLoading = meetingLoading || membersLoading;
   const weeklyPayment = currentSacco?.cash_round_amount || '51000';
+
+  const isSecretary = !!(
+    currentMember &&
+    (currentMember.role?.toLowerCase().includes('secretary') ?? false)
+  );
 
   // Get cash round number from various sources
   const cashRoundNumber =
@@ -570,7 +577,7 @@ export default function MeetingDetail() {
         </div>
 
         <div className="flex gap-2 items-center">
-          {meeting.status !== 'completed' ? (
+          {meeting.status !== 'completed' && isSecretary ? (
             <Button 
               variant="primary" 
               onClick={() => setFinalizeModalOpen(true)}
@@ -578,7 +585,7 @@ export default function MeetingDetail() {
             >
               Finalize Week
             </Button>
-          ) : (
+          ) : meeting.status === 'completed' ? (
             <div className="relative">
               <Button
                 variant="primary"
@@ -636,7 +643,7 @@ export default function MeetingDetail() {
                 </>
               )}
             </div>
-          )}
+          ) : null}
           <MeetingStatusBadge status={meeting.status} />
         </div>
       </div>
@@ -917,35 +924,39 @@ export default function MeetingDetail() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <div className="flex justify-end gap-2">
-                          {hasPaid ? (
+                          {isSecretary && (
+                            hasPaid ? (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleUndoPayment(member)}
+                                disabled={meeting.status === 'completed' || deleteContribution.isPending}
+                                leftIcon={<XCircle size={14} />}
+                              >
+                                Undo
+                              </Button>
+                            ) : (
+                              <Button
+                                variant="primary"
+                                size="sm"
+                                onClick={() => handleRecordPayment(member)}
+                                disabled={meeting.status === 'completed' || createContribution.isPending || updateContribution.isPending}
+                              >
+                                Pay
+                              </Button>
+                            )
+                          )}
+                          {isSecretary && (
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => handleUndoPayment(member)}
-                              disabled={meeting.status === 'completed' || deleteContribution.isPending}
-                              leftIcon={<XCircle size={14} />}
+                              onClick={() => handleOpenExtraModal(member)}
+                              leftIcon={<Plus size={14} />}
+                              disabled={meeting.status === 'completed'}
                             >
-                              Undo
-                            </Button>
-                          ) : (
-                            <Button
-                              variant="primary"
-                              size="sm"
-                              onClick={() => handleRecordPayment(member)}
-                              disabled={meeting.status === 'completed' || createContribution.isPending || updateContribution.isPending}
-                            >
-                              Pay
+                              {hasSavings ? 'Update' : 'Extra'}
                             </Button>
                           )}
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleOpenExtraModal(member)}
-                            leftIcon={<Plus size={14} />}
-                            disabled={meeting.status === 'completed'}
-                          >
-                            {hasSavings ? 'Update' : 'Extra'}
-                          </Button>
                         </div>
                       </td>
                     </tr>

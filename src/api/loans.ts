@@ -69,7 +69,8 @@ export const loansApi = {
     const response = await apiClient.post(`/saccos/loans/${loanId}/disburse/`, {
       disbursement_date: disbursementDate,
     });
-    return response.data;
+    // Backend may return either the loan directly or wrap it in { loan, passbook_entry }
+    return response.data.loan || response.data;
   },
 
   /**

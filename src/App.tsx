@@ -26,6 +26,7 @@ import SaccoAccountManagement from './pages/settings/SaccoAccountManagement';
 import BusinessManagement from './pages/settings/BusinessManagement';
 import BusinessPanel from './pages/business/BusinessPanel';
 import InstallPWA from './components/common/InstallPWA';
+import LoansList from './pages/loans/LoansList';
 
 function App() {
   return (
@@ -165,27 +166,12 @@ function App() {
             element={
               <ProtectedRoute>
                 <AppLayout>
-                  <div className="p-8">
-                    <h1 className="text-2xl font-bold">Loans</h1>
-                    <p className="text-gray-600 mt-2">Coming soon...</p>
-                  </div>
+                  <LoansList />
                 </AppLayout>
               </ProtectedRoute>
             }
           />
-          <Route
-            path="/loans/new"
-            element={
-              <ProtectedRoute>
-                <AppLayout>
-                  <div className="p-8">
-                    <h1 className="text-2xl font-bold">New Loan Application</h1>
-                    <p className="text-gray-600 mt-2">Coming soon...</p>
-                  </div>
-                </AppLayout>
-              </ProtectedRoute>
-            }
-          />
+          <Route path="/loans/new" element={<Navigate to="/loans" replace />} />
 
           <Route
             path="/transactions"

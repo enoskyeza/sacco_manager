@@ -1,5 +1,5 @@
 import apiClient from './client';
-import type { DashboardMetrics, SavingsGrowthData } from '../types';
+import type { DashboardMetrics, SavingsGrowthData, MemberPendingPayments } from '../types';
 
 export const dashboardApi = {
   /**
@@ -33,6 +33,21 @@ export const dashboardApi = {
    */
   getMeetingEfficiency: async (saccoId: number) => {
     const response = await apiClient.get(`/saccos/${saccoId}/analytics/meeting-efficiency/`);
+    return response.data;
+  },
+
+  /**
+   * Get pending payments for a member (loans + weekly contributions)
+   */
+  getMemberPendingPayments: async (
+    saccoId: number,
+    memberId: number,
+    daysAhead = 3,
+  ): Promise<MemberPendingPayments> => {
+    const response = await apiClient.get(
+      `/saccos/${saccoId}/members/${memberId}/pending-payments/`,
+      { params: { days: daysAhead } },
+    );
     return response.data;
   },
 };

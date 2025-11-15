@@ -29,6 +29,7 @@ export interface SaccoLoan extends BaseModel {
   approved_by?: number;
   rejection_reason?: string;
   is_overdue: boolean; // Computed
+  repayment_frequency?: 'monthly' | 'weekly';
 }
 
 /**
@@ -71,6 +72,7 @@ export interface CreateLoanRequest {
   duration_months: number;
   purpose: string;
   application_date: string;
+  repayment_frequency?: 'monthly' | 'weekly';
 }
 
 /**
@@ -90,8 +92,9 @@ export interface UpdateLoanRequest extends Partial<CreateLoanRequest> {
 export interface CreateLoanPaymentRequest {
   loan: number;
   payment_date: string;
-  principal_amount: string;
-  interest_amount: string;
+  total_amount: string;
+  principal_amount?: string;
+  interest_amount?: string;
   payment_method?: string;
   reference_number?: string;
   notes?: string;

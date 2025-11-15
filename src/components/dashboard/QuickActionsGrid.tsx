@@ -11,6 +11,10 @@ interface QuickAction {
   color: string;
 }
 
+interface QuickActionsGridProps {
+  isSecretary?: boolean;
+}
+
 const quickActions: QuickAction[] = [
   {
     title: 'Add Member',
@@ -56,10 +60,23 @@ const quickActions: QuickAction[] = [
   },
 ];
 
-export default function QuickActionsGrid() {
+export default function QuickActionsGrid({ isSecretary }: QuickActionsGridProps) {
+  const visibleActions = isSecretary
+    ? quickActions
+    : quickActions.filter((action) => {
+        if (
+          action.title === 'Add Member' ||
+          action.title === 'Record Meeting' ||
+          action.title === 'Settings'
+        ) {
+          return false;
+        }
+        return true;
+      });
+
   return (
     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-      {quickActions.map((action) => (
+      {visibleActions.map((action) => (
         <Link key={action.title} to={action.href}>
           <Card hover className="h-full">
             <div className="p-4 text-center">

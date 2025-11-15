@@ -11,6 +11,7 @@ import {
   useFinalizeMeeting,
 } from '../../hooks/useMeetings';
 import { useSacco } from '../../hooks/useSacco';
+import { useCurrentMember } from '../../hooks/useCurrentMember';
 import { formatCurrency } from '../../utils/format';
 import { Button, Card, CardBody, CardHeader, CardTitle } from '../../components/common';
 import { Loading } from '../../components/common/Spinner';
@@ -20,6 +21,7 @@ export default function CollectionInterface() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { currentSacco } = useSacco();
+  const { data: currentMember } = useCurrentMember();
   const meetingId = parseInt(id!, 10);
 
   // Fetch meeting data
@@ -37,6 +39,11 @@ export default function CollectionInterface() {
   const finalizeMeeting = useFinalizeMeeting();
 
   const defaultContributionAmount = currentSacco?.cash_round_amount || '0';
+
+  const isSecretary = !!(
+    currentMember &&
+    (currentMember.role?.toLowerCase().includes('secretary') ?? false)
+  );
 
   // Calculate statistics
   const stats = useMemo(() => {
@@ -151,7 +158,7 @@ export default function CollectionInterface() {
           </div>
         </div>
 
-        {!isCompleted && (
+        {!isCompleted && isSecretary && (
           <Button
             variant="primary"
             leftIcon={<CheckCircle size={18} />}
@@ -226,6 +233,7 @@ export default function CollectionInterface() {
                   isPending={isMutating}
                   disabled={isCompleted}
                   isRecipient={isRecipient}
+                  canEdit={isSecretary}
                 />
               );
             })}
