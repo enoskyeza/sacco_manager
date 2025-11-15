@@ -21,11 +21,6 @@ export default function Dashboard() {
     (currentMember.role?.toLowerCase().includes('secretary') ?? false)
   );
 
-  // Temporary debugging log for role-based UI
-  console.log('Dashboard user:', user);
-  console.log('Dashboard member:', currentMember);
-  console.log('Dashboard sacco role:', currentMember?.role, 'isSecretary:', isSecretary);
-
   // Fetch dashboard metrics
   const { data: metrics, isLoading } = useQuery({
     queryKey: ['dashboard-metrics', currentSacco?.id],
