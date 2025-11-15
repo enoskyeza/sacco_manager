@@ -7,6 +7,7 @@ import {
   DollarSign, 
   FileText,
   Settings,
+  Store,
   type LucideIcon
 } from 'lucide-react';
 import { useSacco } from '../../hooks/useSacco';
@@ -20,6 +21,7 @@ interface NavItem {
 const navigation: NavItem[] = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Cash Rounds', href: '/cash-rounds', icon: Calendar },
+  { name: 'Business', href: '/business', icon: Store },
   { name: 'Members', href: '/members', icon: Users },
   { name: 'Passbook', href: '/passbook', icon: BookOpen },
   { name: 'Loans', href: '/loans', icon: DollarSign },
