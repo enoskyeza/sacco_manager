@@ -3,10 +3,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSacco } from '../../hooks/useSacco';
 import { businessApi } from '../../api/business';
 import { Card, CardBody, CardHeader, Button, Modal, Input, TextArea } from '../../components/common';
-import { Store, TrendingUp, TrendingDown, Package, Plus, ShoppingCart, Receipt, X } from 'lucide-react';
+import { Store, TrendingUp, TrendingDown, Package, Plus, ShoppingCart, Receipt, X, Edit2, Trash2 } from 'lucide-react';
 import { formatCurrency } from '../../utils/format';
 import { toast } from 'sonner';
-import type { CreateStockItemRequest, StockItem, CreateSaleRequest, Sale, SaleItem } from '../../types';
+import type { CreateStockItemRequest, UpdateStockItemRequest, StockItem, CreateSaleRequest, Sale, SaleItem } from '../../types';
 
 type TabType = 'sales' | 'expenses' | 'stock';
 
@@ -924,15 +924,21 @@ function ExpensesTab({ businessId }: { businessId: number }) {
 function StockTab({ businessId }: { businessId: number }) {
   const queryClient = useQueryClient();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<StockItem | null>(null);
   const [formData, setFormData] = useState<CreateStockItemRequest>({
     enterprise: businessId,
     name: '',
     category: '',
     unit_of_measure: 'pieces',
     quantity_on_hand: 0,
-    cost_price: '0',
+    cost_price: '',
     selling_price: '0',
+    pack_size: undefined,
+    pack_cost_price: '',
+    pack_selling_price: '',
   });
+  
+  const [isPack, setIsPack] = useState(false);
 
   // Fetch stock items
   const { data: stockItems = [], isLoading } = useQuery({
@@ -945,12 +951,43 @@ function StockTab({ businessId }: { businessId: number }) {
     mutationFn: (data: CreateStockItemRequest) => businessApi.createStockItem(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['stock-items', businessId] });
+      queryClient.invalidateQueries({ queryKey: ['stock-summary', businessId] });
       setIsModalOpen(false);
       resetForm();
       toast.success('Stock item added successfully!');
     },
     onError: (error: Error & { response?: { data?: { error?: string } } }) => {
       toast.error(error.response?.data?.error || 'Failed to add stock item');
+    },
+  });
+
+  // Update mutation
+  const updateMutation = useMutation({
+    mutationFn: ({ itemId, data }: { itemId: number; data: UpdateStockItemRequest }) =>
+      businessApi.updateStockItem(itemId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['stock-items', businessId] });
+      queryClient.invalidateQueries({ queryKey: ['stock-summary', businessId] });
+      setIsModalOpen(false);
+      setEditingItem(null);
+      resetForm();
+      toast.success('Stock item updated successfully!');
+    },
+    onError: (error: Error & { response?: { data?: { error?: string } } }) => {
+      toast.error(error.response?.data?.error || 'Failed to update stock item');
+    },
+  });
+
+  // Delete mutation
+  const deleteMutation = useMutation({
+    mutationFn: (itemId: number) => businessApi.deleteStockItem(itemId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['stock-items', businessId] });
+      queryClient.invalidateQueries({ queryKey: ['stock-summary', businessId] });
+      toast.success('Stock item deleted successfully!');
+    },
+    onError: (error: Error & { response?: { data?: { error?: string } } }) => {
+      toast.error(error.response?.data?.error || 'Failed to delete stock item');
     },
   });
 
@@ -961,18 +998,53 @@ function StockTab({ businessId }: { businessId: number }) {
       category: '',
       unit_of_measure: 'pieces',
       quantity_on_hand: 0,
-      cost_price: '0',
+      cost_price: '',
       selling_price: '0',
+      pack_size: undefined,
+      pack_cost_price: '',
+      pack_selling_price: '',
     });
+    setIsPack(false);
+  };
+
+  const handleEdit = (item: StockItem) => {
+    setEditingItem(item);
+    setFormData({
+      enterprise: businessId,
+      name: item.name,
+      category: item.category,
+      unit_of_measure: item.unit_of_measure,
+      quantity_on_hand: item.quantity_on_hand,
+      reorder_level: item.reorder_level,
+      cost_price: item.cost_price || '',
+      selling_price: item.selling_price,
+      pack_size: item.pack_size || undefined,
+      pack_cost_price: item.pack_cost_price || '',
+      pack_selling_price: item.pack_selling_price || '',
+    });
+    setIsPack(item.is_pack_item);
+    setIsModalOpen(true);
+  };
+
+  const handleDelete = (item: StockItem) => {
+    if (window.confirm(`Are you sure you want to delete "${item.name}"?`)) {
+      deleteMutation.mutate(item.id);
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('='.repeat(80));
-    console.log('SUBMITTING STOCK ITEM DATA:');
-    console.log('Form data:', formData);
-    console.log('='.repeat(80));
-    createMutation.mutate(formData);
+    
+    if (editingItem) {
+      // Update existing item
+      updateMutation.mutate({
+        itemId: editingItem.id,
+        data: formData,
+      });
+    } else {
+      // Create new item
+      createMutation.mutate(formData);
+    }
   };
 
   return (
@@ -1004,18 +1076,24 @@ function StockTab({ businessId }: { businessId: number }) {
               <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Selling Price
               </th>
+              <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Stock Value
+              </th>
+              <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Actions
+              </th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200 capitalize">
             {isLoading ? (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
+                <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
                   Loading inventory...
                 </td>
               </tr>
             ) : stockItems.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
+                <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
                   No stock items yet. Click "Add Stock Item" to get started.
                 </td>
               </tr>
@@ -1023,10 +1101,19 @@ function StockTab({ businessId }: { businessId: number }) {
               stockItems.map((item: StockItem) => (
                 <tr key={item.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3">
-                    <div className="text-sm font-medium text-gray-900">{item.name}</div>
-                    {item.description && (
-                      <div className="text-xs text-gray-500">{item.description}</div>
-                    )}
+                    <div className="flex items-center gap-2">
+                      <div>
+                        <div className="text-sm font-medium text-gray-900">{item.name}</div>
+                        {item.description && (
+                          <div className="text-xs text-gray-500">{item.description}</div>
+                        )}
+                        {item.is_pack_item && (
+                          <div className="text-xs text-indigo-600 mt-0.5">
+                            📦 Pack of {item.pack_size}
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-600">{item.category || '-'}</td>
                   <td className="px-4 py-3 text-center">
@@ -1039,10 +1126,40 @@ function StockTab({ businessId }: { businessId: number }) {
                     </span>
                   </td>
                   <td className="px-4 py-3 text-sm text-right text-gray-900">
-                    {formatCurrency(parseFloat(item.cost_price))}
+                    {item.is_pack_item ? (
+                      <div>
+                        <div className="font-medium">{formatCurrency(parseFloat(item.unit_cost_from_pack))}</div>
+                        <div className="text-xs text-gray-500">
+                          ({formatCurrency(parseFloat(item.pack_cost_price || '0'))}/pack)
+                        </div>
+                      </div>
+                    ) : (
+                      formatCurrency(parseFloat(item.cost_price))
+                    )}
                   </td>
                   <td className="px-4 py-3 text-sm text-right font-medium text-gray-900">
                     {formatCurrency(parseFloat(item.selling_price))}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-right font-medium text-gray-900">
+                    {formatCurrency(parseFloat(item.total_value))}
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center justify-center gap-2">
+                      <button
+                        onClick={() => handleEdit(item)}
+                        className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                        title="Edit item"
+                      >
+                        <Edit2 size={16} />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(item)}
+                        className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        title="Delete item"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))
@@ -1051,13 +1168,18 @@ function StockTab({ businessId }: { businessId: number }) {
         </table>
       </div>
 
-      {/* Add Stock Item Modal */}
+      {/* Add/Edit Stock Item Modal */}
       <Modal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        title="Add Stock Item"
+        onClose={() => {
+          setIsModalOpen(false);
+          setEditingItem(null);
+          resetForm();
+        }}
+        title={editingItem ? 'Edit Stock Item' : 'Add Stock Item'}
       >
-        <form onSubmit={handleSubmit} className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
+        <form onSubmit={handleSubmit} className="space-y-5 max-h-[70vh] overflow-y-auto pr-2">
+          {/* Basic Information */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Input
               label="Item Name"
@@ -1066,13 +1188,6 @@ function StockTab({ businessId }: { businessId: number }) {
               required
               placeholder="e.g., Coca Cola 500ml"
             />
-
-            {/* <Input
-              label="SKU (Optional)"
-              value={formData.sku || ''}
-              onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
-              placeholder="e.g., CC-500"
-            /> */}
 
             <Input
               label="Category"
@@ -1104,7 +1219,7 @@ function StockTab({ businessId }: { businessId: number }) {
             </div>
 
             <Input
-              label="Quantity"
+              label="Quantity on Hand"
               type="number"
               value={formData.quantity_on_hand}
               onChange={(e) => setFormData({ ...formData, quantity_on_hand: parseInt(e.target.value) || 0 })}
@@ -1119,57 +1234,173 @@ function StockTab({ businessId }: { businessId: number }) {
               onChange={(e) => setFormData({ ...formData, reorder_level: parseInt(e.target.value) || undefined })}
               placeholder="Min quantity before reorder"
             />
-
-            <Input
-              label="Cost Price"
-              type="number"
-              step="0.01"
-              value={formData.cost_price}
-              onChange={(e) => setFormData({ ...formData, cost_price: e.target.value })}
-              required
-              placeholder="0.00"
-            />
-
-            <Input
-              label="Selling Price"
-              type="number"
-              step="0.01"
-              value={formData.selling_price}
-              onChange={(e) => setFormData({ ...formData, selling_price: e.target.value })}
-              required
-              placeholder="0.00"
-            />
           </div>
 
-          {/* <Input
-            label="Supplier (Optional)"
-            value={formData.supplier || ''}
-            onChange={(e) => setFormData({ ...formData, supplier: e.target.value })}
-            placeholder="Supplier name"
-          /> */}
+          {/* Pricing Type Toggle */}
+          <div className="pt-2 border-t">
+            <div className="flex items-center gap-3 mb-4">
+              <input
+                type="checkbox"
+                id="isPack"
+                checked={isPack}
+                onChange={(e) => {
+                  setIsPack(e.target.checked);
+                  if (!e.target.checked) {
+                    // Clear pack fields when unchecked
+                    setFormData({
+                      ...formData,
+                      pack_size: undefined,
+                      pack_cost_price: '',
+                      pack_selling_price: '',
+                    });
+                  } else {
+                    // Clear unit cost price when using pack pricing
+                    setFormData({ ...formData, cost_price: '' });
+                  }
+                }}
+                className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+              />
+              <label htmlFor="isPack" className="text-sm font-medium text-gray-700">
+                Item bought in bulk/cartons (e.g., sodas in crates)
+              </label>
+            </div>
+          </div>
 
-          {/* <TextArea
-            label="Description (Optional)"
-            value={formData.description || ''}
-            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setFormData({ ...formData, description: e.target.value })}
-            rows={3}
-            placeholder="Additional details about the item"
-          /> */}
+          {!isPack ? (
+            /* Unit Pricing - For items bought individually */
+            <div className="space-y-4">
+              <h4 className="text-sm font-semibold text-gray-700 -mb-2">Unit Pricing</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Input
+                  label="Cost Price (per unit)"
+                  type="number"
+                  step="0.01"
+                  value={formData.cost_price}
+                  onChange={(e) => setFormData({ ...formData, cost_price: e.target.value })}
+                  required
+                  placeholder="0.00"
+                />
 
-          <div className="flex justify-end gap-3 pt-4">
+                <Input
+                  label="Selling Price (per unit)"
+                  type="number"
+                  step="0.01"
+                  value={formData.selling_price}
+                  onChange={(e) => setFormData({ ...formData, selling_price: e.target.value })}
+                  required
+                  placeholder="0.00"
+                />
+              </div>
+            </div>
+          ) : (
+            /* Pack/Bulk Pricing - For items bought in cartons */
+            <div className="space-y-4">
+              <div>
+                <h4 className="text-sm font-semibold text-gray-700">Pack/Carton Pricing</h4>
+                <p className="text-xs text-gray-500 mt-1">
+                  For items bought in bulk (e.g., crate of 12 sodas at 10,000 UGX, sold at 1,000 UGX each)
+                </p>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Input
+                  label="Items per Pack/Carton"
+                  type="number"
+                  value={formData.pack_size || ''}
+                  onChange={(e) => setFormData({ ...formData, pack_size: parseInt(e.target.value) || undefined })}
+                  required
+                  placeholder="e.g., 12"
+                />
+
+                <Input
+                  label="Pack/Carton Cost Price"
+                  type="number"
+                  step="0.01"
+                  value={formData.pack_cost_price}
+                  onChange={(e) => setFormData({ ...formData, pack_cost_price: e.target.value })}
+                  required
+                  placeholder="e.g., 10000"
+                />
+
+                <Input
+                  label="Unit Selling Price"
+                  type="number"
+                  step="0.01"
+                  value={formData.selling_price}
+                  onChange={(e) => setFormData({ ...formData, selling_price: e.target.value })}
+                  required
+                  placeholder="e.g., 1000"
+                />
+
+                <Input
+                  label="Pack Selling Price (Optional)"
+                  type="number"
+                  step="0.01"
+                  value={formData.pack_selling_price}
+                  onChange={(e) => setFormData({ ...formData, pack_selling_price: e.target.value })}
+                  placeholder="Leave blank if selling by unit"
+                />
+              </div>
+
+              {/* Calculated preview */}
+              {formData.pack_size && formData.pack_cost_price && formData.selling_price && parseFloat(formData.selling_price) > 0 && (
+                <div className="p-3 bg-indigo-50 border border-indigo-200 rounded-lg">
+                  <p className="text-xs font-medium text-indigo-900 mb-2">Preview:</p>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div>
+                      <span className="text-gray-600">Unit Cost:</span>{' '}
+                      <span className="font-medium text-gray-900">
+                        {formatCurrency(parseFloat(formData.pack_cost_price) / formData.pack_size)}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-gray-600">Pack Revenue:</span>{' '}
+                      <span className="font-medium text-gray-900">
+                        {formatCurrency(parseFloat(formData.selling_price) * formData.pack_size)}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-gray-600">Pack Profit:</span>{' '}
+                      <span className="font-medium text-green-700">
+                        {formatCurrency(
+                          (parseFloat(formData.selling_price) * formData.pack_size) - parseFloat(formData.pack_cost_price)
+                        )}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-gray-600">Profit Margin:</span>{' '}
+                      <span className="font-medium text-green-700">
+                        {(
+                          ((parseFloat(formData.selling_price) * formData.pack_size - parseFloat(formData.pack_cost_price)) /
+                            (parseFloat(formData.selling_price) * formData.pack_size)) *
+                          100
+                        ).toFixed(2)}%
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="flex justify-end gap-3 pt-4 border-t">
             <Button
               type="button"
               variant="outline"
-              onClick={() => setIsModalOpen(false)}
+              onClick={() => {
+                setIsModalOpen(false);
+                setEditingItem(null);
+                resetForm();
+              }}
             >
               Cancel
             </Button>
             <Button
               type="submit"
               variant="primary"
-              isLoading={createMutation.isPending}
+              isLoading={createMutation.isPending || updateMutation.isPending}
             >
-              Add Item
+              {editingItem ? 'Update Item' : 'Add Item'}
             </Button>
           </div>
         </form>

@@ -129,8 +129,19 @@ export interface StockItem extends BaseModel {
   quantity_on_hand: number;
   reorder_level: number;
   reorder_quantity: number;
+  // Unit pricing (for items bought individually)
   cost_price: string; // Decimal as string
   selling_price: string; // Decimal as string
+  // Pack pricing (for items bought in bulk/cartons)
+  pack_size: number | null;
+  pack_cost_price: string | null; // Decimal as string
+  pack_selling_price: string | null; // Decimal as string
+  // Calculated fields
+  is_pack_item: boolean;
+  unit_cost_from_pack: string;
+  pack_revenue: string;
+  pack_profit: string;
+  pack_profit_margin: string;
   barcode: string;
   is_active: boolean;
   is_low_stock: boolean;
@@ -152,8 +163,13 @@ export interface CreateStockItemRequest {
   quantity_on_hand: number;
   reorder_level?: number;
   reorder_quantity?: number;
-  cost_price: string;
+  // Unit pricing (for items bought individually)
+  cost_price?: string;
   selling_price: string;
+  // Pack pricing (for items bought in bulk/cartons)
+  pack_size?: number;
+  pack_cost_price?: string;
+  pack_selling_price?: string;
   barcode?: string;
 }
 
@@ -168,8 +184,13 @@ export interface UpdateStockItemRequest {
   quantity_on_hand?: number;
   reorder_level?: number;
   reorder_quantity?: number;
+  // Unit pricing
   cost_price?: string;
   selling_price?: string;
+  // Pack pricing
+  pack_size?: number;
+  pack_cost_price?: string;
+  pack_selling_price?: string;
   barcode?: string;
   is_active?: boolean;
 }
