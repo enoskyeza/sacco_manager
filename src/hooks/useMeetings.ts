@@ -147,3 +147,23 @@ export const useFinalizeMeeting = () => {
     },
   });
 };
+
+/**
+ * Hook to reset a finalized meeting
+ */
+export const useResetMeeting = () => {
+  const { currentSacco } = useSacco();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (meetingId: number) => meetingsApi.resetMeeting(meetingId),
+    onSuccess: (_, meetingId) => {
+      queryClient.invalidateQueries({ queryKey: ['meetings', currentSacco?.id] });
+      queryClient.invalidateQueries({ queryKey: ['meeting', meetingId] });
+      queryClient.invalidateQueries({ queryKey: ['meeting-contributions', meetingId] });
+      queryClient.invalidateQueries({ queryKey: ['meeting-entries', meetingId] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-metrics', currentSacco?.id] });
+      queryClient.invalidateQueries({ queryKey: ['cash-round-schedule', currentSacco?.id] });
+    },
+  });
+};

@@ -13,7 +13,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
   return (
     <div className="min-h-screen bg-gray-50 flex overflow-x-hidden">
       {/* Desktop Sidebar - hidden on mobile/tablet */}
-      <div className="hidden md:block">
+      <div className="hidden lg:block">
         <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       </div>
       

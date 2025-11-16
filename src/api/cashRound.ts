@@ -22,6 +22,7 @@ export interface CashRound {
   notes: string;
   member_count: number;
   members?: CashRoundMember[];
+  schedule?: CashRoundSchedule;
   created_at: string;
   updated_at: string;
 }

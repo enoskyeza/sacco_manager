@@ -96,6 +96,24 @@ export default function CashRoundDetail() {
     },
   });
 
+  // Delete deduction rule mutation
+  const deleteDeductionRuleMutation = useMutation({
+    mutationFn: async (ruleId: number) => {
+      const response = await apiClient.delete(
+        `/saccos/cash-rounds/${id}/deduction-rules/${ruleId}/`
+      );
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cash-round', currentSacco?.id, id] });
+      queryClient.invalidateQueries({ queryKey: ['deduction-rules', currentSacco?.id, id] });
+      toast.success('Deduction rule deleted successfully!');
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.error || 'Failed to delete deduction rule');
+    },
+  });
+
   const handleCreateSchedule = (rotationOrder: number[]) => {
     createScheduleMutation.mutate(rotationOrder);
   };
@@ -110,6 +128,11 @@ export default function CashRoundDetail() {
 
   const handleCreateDeductionRule = (data: { section: number; applies_to: string }) => {
     createDeductionRuleMutation.mutate(data);
+  };
+
+  const handleDeleteDeductionRule = (ruleId: number, ruleName: string) => {
+    if (!confirm(`Are you sure you want to delete the deduction rule for "${ruleName}"?`)) return;
+    deleteDeductionRuleMutation.mutate(ruleId);
   };
 
   // Fetch cash round
@@ -219,6 +242,8 @@ export default function CashRoundDetail() {
   };
 
   const hasSchedule = !!schedule;
+  const hasDeductionRules = deductionRules.length > 0;
+  const canStartRound = hasSchedule && hasDeductionRules;
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-8">
@@ -244,10 +269,21 @@ export default function CashRoundDetail() {
           
         {/* Action Buttons - Stack on mobile */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
-          {cashRound.status === 'planned' && hasSchedule && (
+          {cashRound.status === 'planned' && canStartRound && (
             <button
               onClick={handleStartRound}
               className="flex items-center justify-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
+            >
+              <Play className="h-4 w-4" />
+              Start Round
+            </button>
+          )}
+          
+          {cashRound.status === 'planned' && !canStartRound && (
+            <button
+              disabled
+              className="flex items-center justify-center gap-2 px-4 py-2 bg-gray-300 text-gray-500 rounded-lg cursor-not-allowed font-medium"
+              title="Complete setup requirements to start round"
             >
               <Play className="h-4 w-4" />
               Start Round
@@ -277,6 +313,66 @@ export default function CashRoundDetail() {
       </div>
 
       <div className="space-y-6">
+        {/* Prerequisites Alert */}
+        {cashRound.status === 'planned' && !canStartRound && (
+          <div className="bg-yellow-50 border-2 border-yellow-200 rounded-lg p-4 sm:p-6">
+            <div className="flex items-start gap-3">
+              <div className="flex-shrink-0">
+                <svg className="h-6 w-6 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-yellow-900 mb-2">
+                  Setup Required Before Starting Round
+                </h3>
+                <p className="text-sm text-yellow-800 mb-3">
+                  Complete the following requirements to start this cash round:
+                </p>
+                <div className="space-y-2">
+                  {!hasSchedule && (
+                    <div className="flex items-center gap-2 text-yellow-800">
+                      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                      <span className="text-sm font-medium">Create rotation schedule - Set the order members will receive payouts</span>
+                    </div>
+                  )}
+                  {hasSchedule && (
+                    <div className="flex items-center gap-2 text-green-700">
+                      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      <span className="text-sm font-medium">Rotation schedule created</span>
+                    </div>
+                  )}
+                  {!hasDeductionRules && (
+                    <div className="flex items-center gap-2 text-yellow-800">
+                      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                      <span className="text-sm font-medium">Add at least one deduction rule</span>
+                    </div>
+                  )}
+                  {hasDeductionRules && (
+                    <div className="flex items-center gap-2 text-green-700">
+                      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      <span className="text-sm font-medium">Deduction rules configured ({deductionRules.length} rule{deductionRules.length !== 1 ? 's' : ''})</span>
+                    </div>
+                  )}
+                </div>
+                <div className="mt-4 pt-4 border-t border-yellow-200">
+                  <p className="text-xs text-yellow-700">
+                    <strong>Note:</strong> Once all requirements are met, you'll be able to start the round and create meetings.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Overview Card */}
         <div className="bg-white rounded-lg shadow-sm p-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Overview</h2>
@@ -379,8 +475,11 @@ export default function CashRoundDetail() {
           ) : !hasSchedule ? (
             <div className="text-center py-12 text-gray-500">
               <Users className="h-12 w-12 mx-auto mb-2 text-gray-400" />
-              <p>No rotation schedule created</p>
-              <p className="text-sm mt-1">Create a schedule to set the payout rotation order</p>
+              <p className="font-medium">No rotation schedule created yet</p>
+              <p className="text-sm mt-2 max-w-md mx-auto">
+                Click "Create Schedule" above to set the order in which members will receive their cash round payouts. 
+                You can drag members to arrange them in your preferred sequence.
+              </p>
             </div>
           ) : (
             <>
@@ -525,6 +624,16 @@ export default function CashRoundDetail() {
                       <p className="text-sm text-gray-500 mt-1">{rule.description}</p>
                     )}
                   </div>
+                  <button
+                    onClick={() => handleDeleteDeductionRule(rule.id, rule.section_name)}
+                    disabled={deleteDeductionRuleMutation.isPending}
+                    className="ml-4 p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Delete rule"
+                  >
+                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
                 </div>
               ))}
             </div>

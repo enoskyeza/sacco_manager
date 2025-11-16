@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, DollarSign, TrendingUp, CheckCircle, PiggyBank, Plus, XCircle, Download, Share2, Printer, ChevronDown } from 'lucide-react';
-import { useMeeting, useMeetingContributions, useCreateContribution, useUpdateContribution, useDeleteContribution, useFinalizeMeeting } from '../../hooks/useMeetings';
+import { useMeeting, useMeetingContributions, useCreateContribution, useUpdateContribution, useDeleteContribution, useFinalizeMeeting, useResetMeeting } from '../../hooks/useMeetings';
 import { toast } from 'sonner';
 import { useMembers } from '../../hooks/useMembers';
 import { useSacco } from '../../hooks/useSacco';
@@ -56,28 +56,40 @@ export default function MeetingDetail() {
     enabled: !!currentSacco && !!meeting?.cash_round,
   });
 
-  // Limit to members who are part of this cash round (fallback to all active if no cash round)
+  // Only show members who are part of this specific cash round
   const cashRoundMemberIds = useMemo(
     () => (cashRound?.members?.map((m) => m.member) ?? []),
     [cashRound]
   );
 
   const roundMembers = useMemo(
-    () => (cashRoundMemberIds.length ? members.filter((m) => cashRoundMemberIds.includes(m.id)) : members),
-    [members, cashRoundMemberIds]
+    () => {
+      // If meeting has a cash round, only show members in that round
+      if (meeting?.cash_round && cashRoundMemberIds.length > 0) {
+        return members.filter((m) => cashRoundMemberIds.includes(m.id));
+      }
+      // If meeting has no cash round or it's not loaded yet, show empty list
+      return [];
+    },
+    [meeting?.cash_round, members, cashRoundMemberIds]
   );
 
   const createContribution = useCreateContribution();
   const updateContribution = useUpdateContribution();
   const deleteContribution = useDeleteContribution();
   const finalizeMeeting = useFinalizeMeeting();
+  const resetMeeting = useResetMeeting();
 
   const [extraModalOpen, setExtraModalOpen] = useState(false);
   const [finalizeModalOpen, setFinalizeModalOpen] = useState(false);
+  const [resetModalOpen, setResetModalOpen] = useState(false);
+  const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
   const [extraAmount, setExtraAmount] = useState('');
   const [selectedSection, setSelectedSection] = useState<number | null>(null);
   const [reportDropdownOpen, setReportDropdownOpen] = useState(false);
+  const [scheduleOrder, setScheduleOrder] = useState<number[]>([]);
+  const [selectedRecipient, setSelectedRecipient] = useState<number | null>(null);
 
   const isLoading = meetingLoading || membersLoading;
   const weeklyPayment = currentSacco?.cash_round_amount || '51000';
@@ -110,7 +122,19 @@ export default function MeetingDetail() {
     const applicableRules = deductionRules.filter((r) => {
       const fromOk = !r.effective_from || new Date(r.effective_from) <= meetingDate;
       const untilOk = !r.effective_until || new Date(r.effective_until) >= meetingDate;
-      const cashRoundOk = !r.cash_round || !meeting.cash_round || r.cash_round === meeting.cash_round;
+      
+      // Cash round matching logic:
+      // - If meeting has a cash_round, only use rules for that specific cash_round
+      // - If meeting has no cash_round, use global rules (rules without cash_round specified)
+      let cashRoundOk = false;
+      if (meeting.cash_round) {
+        // Meeting has a cash round - only use rules specifically for this cash round
+        cashRoundOk = r.cash_round === meeting.cash_round;
+      } else {
+        // Meeting has no cash round - only use global rules
+        cashRoundOk = !r.cash_round;
+      }
+      
       const passes = r.is_active && r.applies_to === 'recipient' && fromOk && untilOk && cashRoundOk;
       
       if (!passes) {
@@ -431,6 +455,65 @@ export default function MeetingDetail() {
     }
   };
 
+  // Handle reset meeting
+  const handleResetMeeting = async () => {
+    try {
+      await resetMeeting.mutateAsync(meetingId);
+      setResetModalOpen(false);
+      toast.success('Meeting reset successfully! All passbook entries and transactions have been removed.');
+      await refetchMeeting();
+      await refetchContributions();
+      await refetchEntries();
+    } catch (error) {
+      console.error('Error resetting meeting:', error);
+      toast.error('Failed to reset meeting');
+    }
+  };
+
+  // Handle save schedule changes
+  const handleSaveSchedule = async () => {
+    if (!meeting?.cash_round || !currentSacco) return;
+    
+    try {
+      // Update schedule order if changed
+      if (cashRound?.schedule && scheduleOrder.length > 0) {
+        await meetingsApi.updateCashRoundSchedule(cashRound.schedule.id, {
+          rotation_order: scheduleOrder
+        });
+      }
+      
+      // Update meeting recipient if changed
+      if (selectedRecipient && selectedRecipient !== meeting.cash_round_recipient) {
+        await meetingsApi.updateMeeting(meetingId, {
+          cash_round_recipient: selectedRecipient
+        });
+      }
+      
+      setScheduleModalOpen(false);
+      toast.success('Schedule updated successfully!');
+      await refetchMeeting();
+    } catch (error) {
+      console.error('Error updating schedule:', error);
+      toast.error('Failed to update schedule');
+    }
+  };
+
+  // Move member up in schedule
+  const moveUp = (index: number) => {
+    if (index === 0) return;
+    const newOrder = [...scheduleOrder];
+    [newOrder[index - 1], newOrder[index]] = [newOrder[index], newOrder[index - 1]];
+    setScheduleOrder(newOrder);
+  };
+
+  // Move member down in schedule
+  const moveDown = (index: number) => {
+    if (index === scheduleOrder.length - 1) return;
+    const newOrder = [...scheduleOrder];
+    [newOrder[index], newOrder[index + 1]] = [newOrder[index + 1], newOrder[index]];
+    setScheduleOrder(newOrder);
+  };
+
   // Get contribution status for a member
   const getMemberContribution = (memberId: number) => {
     return contributions.find(c => c.member === memberId);
@@ -586,16 +669,26 @@ export default function MeetingDetail() {
               Finalize Week
             </Button>
           ) : meeting.status === 'completed' ? (
-            <div className="relative">
-              <Button
-                variant="primary"
-                onClick={() => setReportDropdownOpen(!reportDropdownOpen)}
-                rightIcon={<ChevronDown size={16} />}
-              >
-                Week Report
-              </Button>
-              
-              {reportDropdownOpen && (
+            <>
+              {isSecretary && (
+                <Button
+                  variant="outline"
+                  onClick={() => setResetModalOpen(true)}
+                  disabled={resetMeeting.isPending}
+                >
+                  Reset Week
+                </Button>
+              )}
+              <div className="relative">
+                <Button
+                  variant="primary"
+                  onClick={() => setReportDropdownOpen(!reportDropdownOpen)}
+                  rightIcon={<ChevronDown size={16} />}
+                >
+                  Week Report
+                </Button>
+                
+                {reportDropdownOpen && (
                 <>
                   {/* Backdrop */}
                   <div 
@@ -642,7 +735,8 @@ export default function MeetingDetail() {
                   </div>
                 </>
               )}
-            </div>
+              </div>
+            </>
           ) : null}
           <MeetingStatusBadge status={meeting.status} />
         </div>
@@ -686,6 +780,8 @@ export default function MeetingDetail() {
                     <p className={deductionInfo.method === 'rules' ? 'text-green-600' : 'text-amber-600'}>
                       {deductionInfo.method === 'rules' ? (
                         <span>✓ Using {deductionInfo.count} deduction rule{deductionInfo.count !== 1 ? 's' : ''}</span>
+                      ) : meeting?.cash_round ? (
+                        <span>⚠ No rules for this cash round - using section defaults</span>
                       ) : (
                         <span>⚠ Using section defaults (no rules)</span>
                       )}
@@ -827,7 +923,44 @@ export default function MeetingDetail() {
       {/* Members Collection Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Member Collections</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle>Member Collections</CardTitle>
+            {isSecretary && meeting?.cash_round && meeting.status !== 'completed' && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  // Initialize schedule modal with current data
+                  console.log('📋 Opening Manage Schedule Modal');
+                  console.log('  Cash Round:', cashRound);
+                  console.log('  Schedule:', cashRound?.schedule);
+                  console.log('  Rotation Order:', cashRound?.schedule?.rotation_order);
+                  
+                  let order: number[] = [];
+                  
+                  if (cashRound?.schedule?.rotation_order) {
+                    // Use schedule rotation order if available
+                    order = cashRound.schedule.rotation_order;
+                    console.log('  ✅ Using schedule rotation_order:', order);
+                  } else if (cashRound?.members) {
+                    // Fallback: Use members sorted by position
+                    order = cashRound.members
+                      .sort((a, b) => a.position_in_rotation - b.position_in_rotation)
+                      .map(m => m.member);
+                    console.log('  ⚠️ Using fallback from members:', order);
+                  } else {
+                    console.log('  ❌ No schedule or members found');
+                  }
+                  
+                  setScheduleOrder(order);
+                  setSelectedRecipient(meeting.cash_round_recipient || null);
+                  setScheduleModalOpen(true);
+                }}
+              >
+                Manage Schedule
+              </Button>
+            )}
+          </div>
         </CardHeader>
         <CardBody>
           <div className="overflow-x-auto">
@@ -965,8 +1098,17 @@ export default function MeetingDetail() {
               </tbody>
             </table>
             {roundMembers.length === 0 && (
-              <div className="text-center py-8 text-gray-500">
-                No active members found
+              <div className="text-center py-12 text-gray-500">
+                <p className="font-medium mb-2">No members in this cash round</p>
+                {!meeting?.cash_round && (
+                  <p className="text-sm">This meeting has no associated cash round</p>
+                )}
+                {meeting?.cash_round && !cashRound && (
+                  <p className="text-sm">Loading cash round details...</p>
+                )}
+                {meeting?.cash_round && cashRound && cashRoundMemberIds.length === 0 && (
+                  <p className="text-sm">No members have been added to this cash round yet</p>
+                )}
               </div>
             )}
           </div>
@@ -1229,6 +1371,154 @@ export default function MeetingDetail() {
               isLoading={finalizeMeeting.isPending}
             >
               Yes, Finalize Week
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Reset Week Confirmation Modal */}
+      <Modal
+        isOpen={resetModalOpen}
+        onClose={() => setResetModalOpen(false)}
+        title="Reset Week"
+      >
+        <div className="space-y-4">
+          <div className="p-4 bg-red-50 rounded-lg border border-red-200">
+            <p className="text-sm text-red-800">
+              <strong>Warning:</strong> Resetting this week will:
+            </p>
+            <ul className="list-disc list-inside text-sm text-red-700 mt-2 space-y-1">
+              <li>Delete all member contributions (members will show as unpaid)</li>
+              <li>Delete all passbook entries created during finalization</li>
+              <li>Remove the SACCO account transaction</li>
+              <li>Roll back the cash round schedule to the previous member</li>
+              <li>Change the meeting status back to "In Progress"</li>
+            </ul>
+          </div>
+
+          <div className="p-4 bg-gray-50 rounded-lg">
+            <p className="text-sm text-gray-700">
+              This will undo the finalization and allow you to make changes to this week's data.
+              Use this carefully - it's meant for correcting errors after finalization.
+            </p>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4">
+            <Button
+              variant="outline"
+              onClick={() => setResetModalOpen(false)}
+              disabled={resetMeeting.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              onClick={handleResetMeeting}
+              isLoading={resetMeeting.isPending}
+            >
+              Yes, Reset Week
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Manage Schedule Modal */}
+      <Modal
+        isOpen={scheduleModalOpen}
+        onClose={() => setScheduleModalOpen(false)}
+        title="Manage Cash Round Schedule"
+      >
+        <div className="space-y-4">
+          <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+            <p className="text-sm text-blue-800 mb-2">
+              <strong>Schedule Order:</strong> Adjust the rotation order and select the recipient for this meeting.
+            </p>
+            <p className="text-xs text-blue-700">
+              Use the arrows to reorder members. The selected recipient will receive the cash round for this meeting.
+            </p>
+          </div>
+
+          {/* Current Recipient Selection */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Current Meeting Recipient
+            </label>
+            <select
+              value={selectedRecipient || ''}
+              onChange={(e) => setSelectedRecipient(Number(e.target.value) || null)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            >
+              <option value="">Select recipient...</option>
+              {roundMembers.map((member) => (
+                <option key={member.id} value={member.id}>
+                  {member.first_name} {member.last_name} (#{member.member_number})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Schedule Order */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Rotation Order
+            </label>
+            <div className="space-y-2">
+              {scheduleOrder.map((memberId, index) => {
+                const member = roundMembers.find((m) => m.id === memberId);
+                if (!member) return null;
+
+                return (
+                  <div
+                    key={memberId}
+                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm font-semibold text-gray-500">
+                        {index + 1}.
+                      </span>
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">
+                          {member.first_name} {member.last_name}
+                        </p>
+                        <p className="text-xs text-gray-500">#{member.member_number}</p>
+                      </div>
+                    </div>
+                    <div className="flex gap-1">
+                      <button
+                        onClick={() => moveUp(index)}
+                        disabled={index === 0}
+                        className="p-1 hover:bg-gray-200 rounded disabled:opacity-30 disabled:cursor-not-allowed"
+                        title="Move up"
+                      >
+                        <ChevronDown size={16} className="rotate-180" />
+                      </button>
+                      <button
+                        onClick={() => moveDown(index)}
+                        disabled={index === scheduleOrder.length - 1}
+                        className="p-1 hover:bg-gray-200 rounded disabled:opacity-30 disabled:cursor-not-allowed"
+                        title="Move down"
+                      >
+                        <ChevronDown size={16} />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4 border-t">
+            <Button
+              variant="outline"
+              onClick={() => setScheduleModalOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              onClick={handleSaveSchedule}
+            >
+              Save Changes
             </Button>
           </div>
         </div>

@@ -58,6 +58,14 @@ export const meetingsApi = {
   },
 
   /**
+   * Reset a finalized meeting (undo finalization)
+   */
+  resetMeeting: async (meetingId: number): Promise<WeeklyMeeting> => {
+    const response = await apiClient.post(`/saccos/meetings/${meetingId}/reset/`);
+    return response.data.meeting || response.data;
+  },
+
+  /**
    * Get contributions for a meeting
    */
   getContributions: async (meetingId: number): Promise<WeeklyContribution[]> => {

@@ -75,13 +75,15 @@ export default function LoansList() {
     repayment_frequency: 'monthly',
   });
 
-  const [issueForm, setIssueForm] = useState<LoanFormState & { memberId: number | '' }>({
+  const [issueForm, setIssueForm] = useState<LoanFormState & { memberId: number | ''; application_date: string; disbursement_date: string }>({
     principal_amount: '',
     interest_rate: '10',
     duration_months: 12,
     purpose: '',
     repayment_frequency: 'monthly',
     memberId: '',
+    application_date: new Date().toISOString().slice(0, 10),
+    disbursement_date: new Date().toISOString().slice(0, 10),
   });
 
   const [paymentForm, setPaymentForm] = useState<PaymentFormState>(() => {
@@ -167,14 +169,13 @@ export default function LoansList() {
 
   const handleIssueSubmit = async () => {
     if (!issueForm.memberId || !issueForm.principal_amount || !issueForm.purpose) return;
-    const today = todayStr();
     const payload: Omit<CreateLoanRequest, 'sacco'> = {
       member: issueForm.memberId as number,
       principal_amount: issueForm.principal_amount,
       interest_rate: issueForm.interest_rate,
       duration_months: issueForm.duration_months,
       purpose: issueForm.purpose,
-      application_date: today,
+      application_date: issueForm.application_date,
       repayment_frequency: issueForm.repayment_frequency,
     };
     try {
@@ -184,8 +185,8 @@ export default function LoansList() {
       // 2) Approve loan so it can be disbursed
       await approveLoan.mutateAsync(loan.id);
 
-      // 3) Disburse loan with today's date
-      const updated = await disburseLoan.mutateAsync({ loanId: loan.id, disbursementDate: today });
+      // 3) Disburse loan with specified date
+      const updated = await disburseLoan.mutateAsync({ loanId: loan.id, disbursementDate: issueForm.disbursement_date });
 
       setSelectedLoan(updated);
       setIsIssueModalOpen(false);
@@ -196,6 +197,8 @@ export default function LoansList() {
         purpose: '',
         repayment_frequency: 'monthly',
         memberId: '',
+        application_date: new Date().toISOString().slice(0, 10),
+        disbursement_date: new Date().toISOString().slice(0, 10),
       });
       await refetchLoans();
       await refetchPayments();
@@ -698,6 +701,20 @@ export default function LoansList() {
               </label>
             </div>
           </div>
+          <Input
+            label="Application Date (Optional)"
+            type="date"
+            value={issueForm.application_date}
+            onChange={(e) => setIssueForm({ ...issueForm, application_date: e.target.value })}
+            leftIcon={<Calendar size={16} />}
+          />
+          <Input
+            label="Disbursement Date (Optional)"
+            type="date"
+            value={issueForm.disbursement_date}
+            onChange={(e) => setIssueForm({ ...issueForm, disbursement_date: e.target.value })}
+            leftIcon={<Calendar size={16} />}
+          />
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Purpose</label>
             <textarea

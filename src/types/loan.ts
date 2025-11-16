@@ -71,7 +71,9 @@ export interface CreateLoanRequest {
   interest_rate: string;
   duration_months: number;
   purpose: string;
-  application_date: string;
+  application_date?: string;
+  disbursement_date?: string;
+  due_date?: string;
   repayment_frequency?: 'monthly' | 'weekly';
 }
 
