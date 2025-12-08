@@ -475,7 +475,11 @@ export default function LoansList() {
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {effectiveLoans.map((loan) => (
-                    <tr key={loan.id} className="hover:bg-gray-50">
+                    <tr
+                      key={loan.id}
+                      className="hover:bg-gray-50 cursor-pointer"
+                      onClick={() => handleOpenDetail(loan)}
+                    >
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm font-medium text-gray-900">
                           {loan.member_name || 'Member'}
@@ -532,7 +536,10 @@ export default function LoansList() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => handleOpenDetail(loan)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenDetail(loan);
+                          }}
                         >
                           View
                         </Button>

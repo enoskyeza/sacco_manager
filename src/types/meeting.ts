@@ -66,6 +66,7 @@ export interface WeeklyContribution extends BaseModel {
   was_present: boolean;
   amount_contributed: string; // Decimal as string
   optional_savings: string;
+  funding_source?: 'member' | 'sacco';
   is_recipient: boolean;
   compulsory_savings_deduction: string;
   welfare_deduction: string;

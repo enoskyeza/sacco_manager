@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, DollarSign, TrendingUp, CheckCircle, PiggyBank, Plus, XCircle, Download, Share2, Printer, ChevronDown } from 'lucide-react';
-import { useMeeting, useMeetingContributions, useCreateContribution, useUpdateContribution, useDeleteContribution, useFinalizeMeeting, useResetMeeting } from '../../hooks/useMeetings';
+import { ArrowLeft, DollarSign, TrendingUp, CheckCircle, PiggyBank, Plus, XCircle, Download, Share2, Printer, ChevronDown, AlertTriangle } from 'lucide-react';
+import { useMeeting, useMeetingContributions, useCreateContribution, useUpdateContribution, useDeleteContribution, useFinalizeMeeting, useResetMeeting, useRecordDefaulter } from '../../hooks/useMeetings';
 import { toast } from 'sonner';
 import { useMembers } from '../../hooks/useMembers';
 import { useSacco } from '../../hooks/useSacco';
@@ -79,8 +79,10 @@ export default function MeetingDetail() {
   const deleteContribution = useDeleteContribution();
   const finalizeMeeting = useFinalizeMeeting();
   const resetMeeting = useResetMeeting();
+  const recordDefaulter = useRecordDefaulter();
 
   const [extraModalOpen, setExtraModalOpen] = useState(false);
+  const [defaulterModalOpen, setDefaulterModalOpen] = useState(false);
   const [finalizeModalOpen, setFinalizeModalOpen] = useState(false);
   const [resetModalOpen, setResetModalOpen] = useState(false);
   const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
@@ -250,6 +252,33 @@ export default function MeetingDetail() {
       await refetchMeeting(); // Refetch meeting to update totals
     } catch (error) {
       console.error('Error recording payment:', error);
+    }
+  };
+
+  // Handle marking member as defaulter (SACCO covers contribution and creates arrears loan)
+  const handleRecordDefaulterMember = (member: Member) => {
+    setSelectedMember(member);
+    setDefaulterModalOpen(true);
+  };
+
+  const handleConfirmRecordDefaulter = async () => {
+    if (!meeting || !selectedMember) return;
+
+    try {
+      await recordDefaulter.mutateAsync({
+        meetingId,
+        memberId: selectedMember.id,
+        notes: `Marked as defaulter for week ${meeting.week_number}`,
+      });
+
+      await refetchContributions();
+      await refetchMeeting();
+      toast.success(`${selectedMember.first_name} ${selectedMember.last_name} marked as defaulter`);
+      setDefaulterModalOpen(false);
+      setSelectedMember(null);
+    } catch (error) {
+      console.error('Error recording defaulter:', error);
+      toast.error('Failed to mark member as defaulter');
     }
   };
 
@@ -1090,6 +1119,17 @@ export default function MeetingDetail() {
                               {hasSavings ? 'Update' : 'Extra'}
                             </Button>
                           )}
+                          {isSecretary && !hasPaid && (
+                            <Button
+                              variant="danger"
+                              size="sm"
+                              onClick={() => handleRecordDefaulterMember(member)}
+                              leftIcon={<AlertTriangle size={14} />}
+                              disabled={meeting.status === 'completed' || recordDefaulter.isPending}
+                            >
+                              Defaulter
+                            </Button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -1312,6 +1352,66 @@ export default function MeetingDetail() {
               disabled={!extraAmount || parseFloat(extraAmount) <= 0 || !selectedSection}
             >
               Record Extra
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Defaulter Confirmation Modal */}
+      <Modal
+        isOpen={defaulterModalOpen}
+        onClose={() => {
+          setDefaulterModalOpen(false);
+          setSelectedMember(null);
+        }}
+        title="Mark Member as Defaulter"
+      >
+        <div className="space-y-4">
+          {selectedMember && (
+            <div className="p-3 bg-gray-50 rounded-lg">
+              <p className="text-sm text-gray-600">Member</p>
+              <p className="font-medium text-gray-900">
+                {selectedMember.first_name} {selectedMember.last_name}
+              </p>
+              <p className="text-sm text-gray-500">#{selectedMember.member_number}</p>
+            </div>
+          )}
+
+          <div className="p-4 bg-red-50 rounded-lg border border-red-200">
+            <p className="text-sm text-red-800">
+              {selectedMember ? (
+                <>
+                  Mark {selectedMember.first_name} {selectedMember.last_name} as defaulter for this week? The SACCO will cover the weekly payment and an arrears loan will be created.
+                </>
+              ) : (
+                'Mark this member as a defaulter for this week? The SACCO will cover the weekly payment and an arrears loan will be created.'
+              )}
+            </p>
+            {meeting && (
+              <p className="text-xs text-red-700 mt-2">
+                Week {meeting.week_number}, {meeting.year}
+              </p>
+            )}
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDefaulterModalOpen(false);
+                setSelectedMember(null);
+              }}
+              disabled={recordDefaulter.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              onClick={handleConfirmRecordDefaulter}
+              isLoading={recordDefaulter.isPending}
+              disabled={!selectedMember}
+            >
+              Yes, Mark as Defaulter
             </Button>
           </div>
         </div>

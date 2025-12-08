@@ -131,6 +131,31 @@ export const useDeleteContribution = () => {
 };
 
 /**
+ * Hook to mark a member as defaulter for a meeting
+ */
+export const useRecordDefaulter = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (variables: {
+      meetingId: number;
+      memberId: number;
+      amount?: string;
+      notes?: string;
+    }) =>
+      meetingsApi.recordDefaulter(variables.meetingId, {
+        member_id: variables.memberId,
+        amount: variables.amount,
+        notes: variables.notes,
+      }),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['meeting-contributions', variables.meetingId] });
+      queryClient.invalidateQueries({ queryKey: ['meeting', variables.meetingId] });
+    },
+  });
+};
+
+/**
  * Hook to finalize a meeting
  */
 export const useFinalizeMeeting = () => {

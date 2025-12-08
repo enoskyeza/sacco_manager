@@ -66,6 +66,17 @@ export const meetingsApi = {
   },
 
   /**
+   * Record a defaulter for a meeting (SACCO covers missed contribution)
+   */
+  recordDefaulter: async (
+    meetingId: number,
+    data: { member_id: number; amount?: string; notes?: string }
+  ): Promise<any> => {
+    const response = await apiClient.post(`/saccos/meetings/${meetingId}/record_defaulter/`, data);
+    return response.data;
+  },
+
+  /**
    * Get contributions for a meeting
    */
   getContributions: async (meetingId: number): Promise<WeeklyContribution[]> => {
