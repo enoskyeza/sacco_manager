@@ -49,6 +49,12 @@ export type LoanStatus =
   | 'defaulted' 
   | 'rejected';
 
+export type WithdrawalStatus =
+  | 'pending'
+  | 'approved'
+  | 'rejected'
+  | 'disbursed';
+
 /**
  * Section types
  */

@@ -11,6 +11,7 @@ export interface PassbookSection extends BaseModel {
   is_compulsory: boolean;
   weekly_amount: string; // Decimal as string
   allow_variable_amounts: boolean;
+  withdrawable?: boolean;
   display_order: number;
   is_active: boolean;
   color: string; // Hex color
@@ -109,6 +110,7 @@ export interface CreateSectionRequest {
   is_compulsory?: boolean;
   weekly_amount?: string;
   allow_variable_amounts?: boolean;
+  withdrawable?: boolean;
   display_order?: number;
   color?: string;
 }

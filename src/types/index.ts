@@ -24,6 +24,9 @@ export * from './meeting';
 // Loans
 export * from './loan';
 
+// Withdrawals
+export * from './withdrawal';
+
 // Dashboard
 export * from './dashboard';
 

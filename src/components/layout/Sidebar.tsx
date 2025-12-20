@@ -5,6 +5,7 @@ import {
   BookOpen, 
   Calendar, 
   DollarSign, 
+  ArrowDownCircle,
   FileText,
   Settings,
   Store,
@@ -25,6 +26,7 @@ const navigation: NavItem[] = [
   { name: 'Members', href: '/members', icon: Users },
   { name: 'Passbook', href: '/passbook', icon: BookOpen },
   { name: 'Loans', href: '/loans', icon: DollarSign },
+  { name: 'Withdrawals', href: '/withdrawals', icon: ArrowDownCircle },
   { name: 'Reports', href: '/reports', icon: FileText },
   { name: 'Settings', href: '/settings', icon: Settings },
 ];

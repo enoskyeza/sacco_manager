@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { UserPlus, Calendar, DollarSign, FileText, Settings, BookOpen } from 'lucide-react';
+import { UserPlus, Calendar, DollarSign, FileText, Settings, BookOpen, ArrowDownCircle } from 'lucide-react';
 import Card from '../common/Card';
 
 interface QuickAction {
@@ -36,6 +36,13 @@ const quickActions: QuickAction[] = [
     href: '/loans/new',
     icon: <DollarSign size={24} />,
     color: 'bg-yellow-500',
+  },
+  {
+    title: 'Withdraw',
+    description: 'Request a withdrawal',
+    href: '/withdrawals',
+    icon: <ArrowDownCircle size={24} />,
+    color: 'bg-rose-500',
   },
   {
     title: 'Settings',

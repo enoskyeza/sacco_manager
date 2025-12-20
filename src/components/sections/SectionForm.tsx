@@ -23,6 +23,7 @@ export default function SectionForm({ section, onSubmit, onCancel, isLoading }: 
     is_compulsory: section?.is_compulsory ?? false,
     weekly_amount: section?.weekly_amount || '0',
     allow_variable_amounts: section?.allow_variable_amounts ?? true,
+    withdrawable: section?.withdrawable ?? false,
     display_order: section?.display_order || 0,
     color: section?.color || DEFAULT_SECTION_COLORS.savings,
   });
@@ -156,6 +157,20 @@ export default function SectionForm({ section, onSubmit, onCancel, isLoading }: 
                   />
                   <label htmlFor="allow_variable_amounts" className="text-sm font-medium text-gray-700">
                     Allow variable amounts (members can pay different amounts)
+                  </label>
+                </div>
+
+                {/* Withdrawable */}
+                <div className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    id="withdrawable"
+                    checked={!!formData.withdrawable}
+                    onChange={(e) => handleChange('withdrawable', e.target.checked)}
+                    className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                  />
+                  <label htmlFor="withdrawable" className="text-sm font-medium text-gray-700">
+                    Withdrawable (members can withdraw balances from this section)
                   </label>
                 </div>
 

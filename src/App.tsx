@@ -27,6 +27,7 @@ import BusinessManagement from './pages/settings/BusinessManagement';
 import BusinessPanel from './pages/business/BusinessPanel';
 import InstallPWA from './components/common/InstallPWA';
 import LoansList from './pages/loans/LoansList';
+import WithdrawalsList from './pages/withdrawals/WithdrawalsList';
 
 function App() {
   return (
@@ -172,6 +173,18 @@ function App() {
             }
           />
           <Route path="/loans/new" element={<Navigate to="/loans" replace />} />
+
+          {/* Withdrawals routes */}
+          <Route
+            path="/withdrawals"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <WithdrawalsList />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
 
           <Route
             path="/transactions"

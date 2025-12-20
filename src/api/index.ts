@@ -9,5 +9,6 @@ export { membersApi } from './members';
 export { passbookApi } from './passbook';
 export { meetingsApi } from './meetings';
 export { loansApi } from './loans';
+export { withdrawalsApi } from './withdrawals';
 export { dashboardApi } from './dashboard';
 export { default as apiClient } from './client';

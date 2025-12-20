@@ -1,5 +1,5 @@
 import type { ReactNode, HTMLAttributes } from 'react';
-import type { Status, MeetingStatus, LoanStatus } from '../../types';
+import type { Status, MeetingStatus, LoanStatus, WithdrawalStatus } from '../../types';
 
 interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
   children: ReactNode;
@@ -50,6 +50,28 @@ export function StatusBadge({ status, className = '' }: StatusBadgeProps) {
     inactive: { variant: 'default' as const, label: 'Inactive' },
     suspended: { variant: 'warning' as const, label: 'Suspended' },
     resigned: { variant: 'error' as const, label: 'Resigned' },
+  };
+
+  const config = statusConfig[status];
+
+  return (
+    <Badge variant={config.variant} className={className}>
+      {config.label}
+    </Badge>
+  );
+}
+
+interface WithdrawalStatusBadgeProps {
+  status: WithdrawalStatus;
+  className?: string;
+}
+
+export function WithdrawalStatusBadge({ status, className = '' }: WithdrawalStatusBadgeProps) {
+  const statusConfig = {
+    pending: { variant: 'warning' as const, label: 'Pending' },
+    approved: { variant: 'info' as const, label: 'Approved' },
+    disbursed: { variant: 'success' as const, label: 'Disbursed' },
+    rejected: { variant: 'error' as const, label: 'Rejected' },
   };
 
   const config = statusConfig[status];
