@@ -5,6 +5,7 @@ import {
   useLoans,
   useCreateLoan,
   useApproveLoan,
+  useRejectLoan,
   useDisburseLoan,
   useLoanPayments,
   useCreateLoanPayment,
@@ -18,7 +19,7 @@ import type {
   CreateLoanPaymentRequest,
 } from '../../types';
 import { formatCurrency, formatDate } from '../../utils/format';
-import { Button, Card, CardBody, CardHeader, CardTitle, Input, Modal } from '../../components/common';
+import { Button, Card, CardBody, CardHeader, CardTitle, Input, Modal, TextArea } from '../../components/common';
 import { Loading } from '../../components/common/Spinner';
 import { AlertCircle, Calendar, DollarSign, Filter, Plus, UserCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -65,7 +66,9 @@ export default function LoansList() {
   const [isIssueModalOpen, setIsIssueModalOpen] = useState(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isAddPaymentModalOpen, setIsAddPaymentModalOpen] = useState(false);
+  const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
   const [selectedLoan, setSelectedLoan] = useState<SaccoLoan | null>(null);
+  const [rejectReason, setRejectReason] = useState('');
 
   const [applyForm, setApplyForm] = useState<LoanFormState>({
     principal_amount: '',
@@ -122,6 +125,7 @@ export default function LoansList() {
 
   const createLoan = useCreateLoan();
   const approveLoan = useApproveLoan();
+  const rejectLoan = useRejectLoan();
   const disburseLoan = useDisburseLoan();
   const createLoanPayment = useCreateLoanPayment();
 
@@ -139,6 +143,8 @@ export default function LoansList() {
   const handleCloseDetail = () => {
     setIsDetailModalOpen(false);
     setSelectedLoan(null);
+    setIsRejectModalOpen(false);
+    setRejectReason('');
   };
 
   const todayStr = () => new Date().toISOString().slice(0, 10);
@@ -234,6 +240,37 @@ export default function LoansList() {
     setSelectedLoan(updated);
     await refetchLoans();
     await refetchPayments();
+  };
+
+  const handleRejectLoan = async () => {
+    if (!selectedLoan || !isSecretary) return;
+
+    try {
+      const updated = await rejectLoan.mutateAsync({ loanId: selectedLoan.id, reason: rejectReason });
+      setSelectedLoan(updated);
+      setIsRejectModalOpen(false);
+      setRejectReason('');
+      await refetchLoans();
+      toast.success('Loan rejected');
+    } catch (error: unknown) {
+      console.error('Error rejecting loan:', error);
+      type ApiErrorResponse = {
+        response?: {
+          data?: {
+            error?: string;
+            detail?: string;
+            [key: string]: unknown;
+          };
+        };
+      };
+      const err = error as ApiErrorResponse;
+      const data = err.response?.data;
+      const message =
+        (data && (data.error as string)) ||
+        (data && (data.detail as string)) ||
+        (data ? JSON.stringify(data) : 'Failed to reject loan. Please try again.');
+      toast.error(message);
+    }
   };
 
   const handleAddPaymentSubmit = async () => {
@@ -517,7 +554,7 @@ export default function LoansList() {
                               : loan.status === 'defaulted'
                               ? 'bg-red-100 text-red-800'
                               : loan.status === 'rejected'
-                              ? 'bg-gray-100 text-gray-700'
+                              ? 'bg-red-100 text-red-800'
                               : 'bg-gray-100 text-gray-700'
                           }`}
                         >
@@ -768,7 +805,19 @@ export default function LoansList() {
               </div>
               <div className="text-right">
                 <p className="text-xs text-gray-500">Status</p>
-                <p className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
+                <p
+                  className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${
+                    selectedLoan.status === 'pending'
+                      ? 'bg-yellow-100 text-yellow-800'
+                      : selectedLoan.status === 'active' || selectedLoan.status === 'disbursed'
+                      ? 'bg-green-100 text-green-800'
+                      : selectedLoan.status === 'defaulted'
+                      ? 'bg-red-100 text-red-800'
+                      : selectedLoan.status === 'rejected'
+                      ? 'bg-red-100 text-red-800'
+                      : 'bg-gray-100 text-gray-700'
+                  }`}
+                >
                   {selectedLoan.status}
                 </p>
               </div>
@@ -810,18 +859,37 @@ export default function LoansList() {
                   </p>
                 </div>
               )}
+              {selectedLoan.status === 'rejected' && !!selectedLoan.rejection_reason?.trim() && (
+                <div className="md:col-span-2">
+                  <p className="text-xs text-gray-500">Rejection Reason</p>
+                  <p className="text-sm text-red-700 whitespace-pre-wrap">
+                    {selectedLoan.rejection_reason}
+                  </p>
+                </div>
+              )}
             </div>
 
             <div className="flex flex-wrap gap-2 justify-end">
               {isSecretary && selectedLoan.status === 'pending' && (
-                <Button
-                  variant="primary"
-                  size="sm"
-                  onClick={handleDisbursePendingLoan}
-                  isLoading={approveLoan.isPending || disburseLoan.isPending}
-                >
-                  Disburse Loan
-                </Button>
+                <>
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    onClick={() => setIsRejectModalOpen(true)}
+                    disabled={approveLoan.isPending || disburseLoan.isPending || rejectLoan.isPending}
+                  >
+                    Reject Loan
+                  </Button>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={handleDisbursePendingLoan}
+                    isLoading={approveLoan.isPending || disburseLoan.isPending}
+                    disabled={rejectLoan.isPending}
+                  >
+                    Disburse Loan
+                  </Button>
+                </>
               )}
               {isSecretary && (selectedLoan.status === 'active' || selectedLoan.status === 'disbursed') && (
                 <Button
@@ -902,6 +970,50 @@ export default function LoansList() {
                   </div>
                 )}
               </div>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      <Modal
+        isOpen={isRejectModalOpen && !!selectedLoan}
+        onClose={() => {
+          setIsRejectModalOpen(false);
+          setRejectReason('');
+        }}
+        title="Reject Loan"
+        size="sm"
+      >
+        {selectedLoan && (
+          <div className="space-y-4">
+            <div className="text-sm text-gray-700">
+              Are you sure you want to reject loan <span className="font-semibold">{selectedLoan.loan_number}</span>?
+            </div>
+            <TextArea
+              label="Reason (optional)"
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              placeholder="Add a brief reason for rejecting this loan (optional)"
+              rows={4}
+            />
+            <div className="flex justify-end gap-3 pt-4 border-t">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setIsRejectModalOpen(false);
+                  setRejectReason('');
+                }}
+                disabled={rejectLoan.isPending}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                onClick={handleRejectLoan}
+                isLoading={rejectLoan.isPending}
+              >
+                Confirm Reject
+              </Button>
             </div>
           </div>
         )}

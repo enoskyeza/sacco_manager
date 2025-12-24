@@ -22,6 +22,24 @@ export const useLoans = (filters?: LoanFilters) => {
 };
 
 /**
+ * Reject a loan
+ */
+export const useRejectLoan = () => {
+  const { currentSacco } = useSacco();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ loanId, reason }: { loanId: number; reason: string }) =>
+      loansApi.rejectLoan(loanId, reason),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['loans', currentSacco?.id] });
+      queryClient.invalidateQueries({ queryKey: ['loan', variables.loanId] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-metrics', currentSacco?.id] });
+    },
+  });
+};
+
+/**
  * Fetch a single loan by ID
  */
 export const useLoan = (loanId: number) => {
